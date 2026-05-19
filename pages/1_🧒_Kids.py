@@ -4,7 +4,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
 import streamlit as st
 import pandas as pd
-from datetime import date
+from datetime import date, timedelta
 
 st.set_page_config(page_title="AiPi360 · Kids", page_icon="🧒", layout="wide")
 
