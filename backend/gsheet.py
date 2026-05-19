@@ -43,12 +43,42 @@ def _get_spreadsheet():
 def _get_or_create_ws(tab: str) -> gspread.Worksheet:
     sh = _get_spreadsheet()
     try:
-        return sh.worksheet(tab)
+        ws = sh.worksheet(tab)
     except gspread.WorksheetNotFound:
         ws = sh.add_worksheet(title=tab, rows=1000, cols=30)
         if tab in TAB_SCHEMAS:
             ws.append_row(TAB_SCHEMAS[tab])
         return ws
+    # Migrate headers if schema has changed (adds missing columns, re-orders)
+    _migrate_headers(ws, tab)
+    return ws
+
+
+def _migrate_headers(ws: gspread.Worksheet, tab: str) -> None:
+    """If the sheet's header row doesn't match the schema, migrate in-place.
+
+    Strategy: read existing data keyed by old headers, then rewrite with
+    new headers. Missing new columns default to empty string.
+    """
+    expected = TAB_SCHEMAS.get(tab)
+    if not expected:
+        return
+    current = ws.row_values(1)
+    if current == expected:
+        return  # already up to date
+
+    # Read all existing data mapped by old column names
+    try:
+        old_records = ws.get_all_records(expected_headers=[])
+    except Exception:
+        old_records = []
+
+    # Rewrite: header row + one row per old record mapped to new columns
+    new_rows = [[rec.get(col, "") for col in expected] for rec in old_records]
+    ws.clear()
+    ws.append_row(expected)
+    if new_rows:
+        ws.append_rows(new_rows, value_input_option="USER_ENTERED")
 
 
 @st.cache_data(ttl=120)
