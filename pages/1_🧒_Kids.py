@@ -138,9 +138,9 @@ with child_tab1:
                     for idx, subj in enumerate(subjects):
                         col = col_a if idx % 2 == 0 else col_b
                         style = SUBJECT_STYLE[subj]
-                        # Find topics for this month
+                        # Match by month abbreviation so Science/SS labels (different subtitles) still resolve
                         topics = next(
-                            (t for m, t in MONTHLY_PACING[subj] if m == sel_month), []
+                            (t for m, t in MONTHLY_PACING[subj] if month_key(m) == mk), []
                         )
                         # Build topic rows with escaped text
                         topic_html = ""
