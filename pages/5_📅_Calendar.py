@@ -41,10 +41,195 @@ with st.sidebar:
 
 section_header("📅", "Calendar & Reminders", "All reminders, events & important dates in one place")
 
-tab1, tab2, tab3, tab4 = st.tabs(["📋 All Reminders", "➕ Add Reminder", "📆 7-Day View", "📚 Class Schedule"])
+tab1, tab2, tab3, tab4, tab5 = st.tabs(["📊 Timeline", "📋 All Reminders", "➕ Add Reminder", "📆 7-Day View", "📚 Class Schedule"])
+
+# ── Timeline ──────────────────────────────────────────────────────────────────
+with tab1:
+    import plotly.graph_objects as go
+
+    today     = date.today()
+    tl_start  = today - timedelta(days=3)
+    tl_end    = today + timedelta(days=30)
+
+    CAT_ORDER  = ["SCHOOL", "MONEY", "TRAVEL", "FAMILY", "ADMIN"]
+    CAT_FILL   = {"SCHOOL": "#ff7675", "MONEY": "#fdcb6e", "TRAVEL": "#55efc4",
+                  "FAMILY": "#74b9ff", "ADMIN": "#c77dff"}
+    CAT_BORDER = {"SCHOOL": "#d63031", "MONEY": "#e17055", "TRAVEL": "#00b894",
+                  "FAMILY": "#2980b9", "ADMIN": "#6c5ce7"}
+    SEC_TO_CAT = {
+        "school": "SCHOOL", "fisd": "SCHOOL", "kids": "SCHOOL", "tamil": "SCHOOL",
+        "insurance": "MONEY", "cc": "MONEY", "accounts": "MONEY",
+        "travel": "TRAVEL", "family": "FAMILY",
+        "general": "ADMIN", "admin": "ADMIN",
+    }
+
+    # Gather events
+    tl_events = []
+
+    # From reminders
+    try:
+        rem_all = read_sheet("reminders")
+        if not rem_all.empty:
+            rem_all["due_date"] = pd.to_datetime(rem_all["due_date"], errors="coerce").dt.date
+            active = rem_all[
+                (rem_all["status"].str.upper() != "DONE") &
+                rem_all["due_date"].notna()
+            ]
+            for _, r in active.iterrows():
+                d = r["due_date"]
+                if tl_start <= d <= tl_end:
+                    cat = SEC_TO_CAT.get(str(r.get("section", "")).lower(), "ADMIN")
+                    tl_events.append({"date": d, "label": str(r["title"])[:14],
+                                      "cat": cat, "tip": str(r["title"])})
+    except Exception:
+        pass
+
+    # From upcoming class sessions
+    try:
+        from services.kids import upcoming_sessions as _uc
+        for s in _uc(days_ahead=30):
+            tl_events.append({"date": s["date"],
+                               "label": s["class"][:12],
+                               "cat": "SCHOOL",
+                               "tip": f"{s['class']} ({s['child']})"})
+    except Exception:
+        pass
+
+    # STAAR exam dates
+    try:
+        from services.staar_prep import STAAR_DATES_2026
+        for sd in STAAR_DATES_2026:
+            d = sd["date"]
+            if tl_start <= d <= tl_end:
+                tl_events.append({"date": d,
+                                   "label": f"★{sd['label']} G{sd['grades']}",
+                                   "cat": "SCHOOL", "tip": sd["full"]})
+    except Exception:
+        pass
+
+    # ── Build Plotly figure ────────────────────────────────────────────────────
+    fig = go.Figure()
+
+    # Invisible scatter to set axis ranges
+    fig.add_trace(go.Scatter(
+        x=[pd.Timestamp(tl_start), pd.Timestamp(tl_end)],
+        y=[0, len(CAT_ORDER) - 1],
+        mode="markers", marker_opacity=0,
+        showlegend=False, hoverinfo="skip",
+    ))
+
+    # Category row bands
+    for i, cat in enumerate(CAT_ORDER):
+        fig.add_shape(type="rect", layer="below",
+                      x0=pd.Timestamp(tl_start), x1=pd.Timestamp(tl_end),
+                      y0=i - 0.45, y1=i + 0.45,
+                      fillcolor="#161b22" if i % 2 == 0 else "#0d1117",
+                      line_width=0)
+        fig.add_annotation(x=pd.Timestamp(tl_start), y=i,
+                           text=cat, showarrow=False,
+                           font=dict(size=10, color="#8b949e", family="monospace"),
+                           xanchor="right", xshift=-6)
+
+    # Today line
+    fig.add_shape(type="line",
+                  x0=pd.Timestamp(today), x1=pd.Timestamp(today),
+                  y0=-0.6, y1=len(CAT_ORDER) - 0.4,
+                  line=dict(color="#58a6ff", width=1, dash="dot"))
+    fig.add_annotation(x=pd.Timestamp(today), y=-0.58,
+                       text="today", showarrow=False,
+                       font=dict(size=9, color="#58a6ff", family="monospace"),
+                       yanchor="top")
+
+    # Event boxes
+    for ev in tl_events:
+        cat_y  = CAT_ORDER.index(ev["cat"])
+        label  = ev["label"]
+        box_w  = max(1.2, len(label) * 0.18)   # days wide
+        x0_ts  = pd.Timestamp(ev["date"])
+        x1_ts  = x0_ts + pd.Timedelta(days=box_w)
+        fig.add_shape(type="rect", layer="above",
+                      x0=x0_ts, x1=x1_ts,
+                      y0=cat_y - 0.28, y1=cat_y + 0.28,
+                      fillcolor=CAT_FILL[ev["cat"]],
+                      line_color=CAT_BORDER[ev["cat"]], line_width=1)
+        fig.add_trace(go.Scatter(
+            x=[(x0_ts + (x1_ts - x0_ts) / 2)],
+            y=[cat_y],
+            mode="text",
+            text=[label],
+            textfont=dict(size=9, color="#0d1117", family="monospace"),
+            showlegend=False,
+            hovertext=[ev["tip"]],
+            hoverinfo="text",
+        ))
+
+    tl_filter = st.selectbox("Filter category", ["all sources"] + CAT_ORDER,
+                             key="tl_filter", label_visibility="collapsed")
+    mo_label = today.strftime("%m")
+
+    fig.update_layout(
+        paper_bgcolor="#0d1117",
+        plot_bgcolor="#0d1117",
+        font=dict(family="monospace", color="#c9d1d9", size=11),
+        height=280,
+        margin=dict(l=90, r=20, t=46, b=28),
+        title=dict(
+            text=f"{mo_label} · 30-DAY TIMELINE · WEIGHTED"
+                 f"<span style='float:right;font-size:10px;color:#444;'>  {tl_filter}</span>",
+            font=dict(size=12, color="#8b949e", family="monospace"),
+            x=0, y=0.98,
+        ),
+        xaxis=dict(
+            type="date",
+            range=[pd.Timestamp(tl_start), pd.Timestamp(tl_end)],
+            showgrid=True, gridcolor="#21262d", gridwidth=1,
+            tickformat="%d", tickfont=dict(size=10, color="#8b949e"),
+            dtick=86400000 * 2,   # every 2 days
+            zeroline=False, showline=False,
+        ),
+        yaxis=dict(
+            range=[-0.7, len(CAT_ORDER) - 0.3],
+            showgrid=False, showticklabels=False,
+            zeroline=False,
+        ),
+        showlegend=False,
+        hovermode="closest",
+    )
+
+    # Apply category filter
+    if tl_filter != "all sources":
+        filtered = [e for e in tl_events if e["cat"] == tl_filter]
+        tl_events[:] = filtered
+
+    st.plotly_chart(fig, use_container_width=True, config={"displayModeBar": False})
+
+    # ── STAAR dates callout ─────────────────────────────────────────────────────
+    try:
+        from services.staar_prep import STAAR_DATES_2026 as _SD
+        upcoming_staar = [s for s in _SD if today <= s["date"] <= tl_end]
+        if upcoming_staar:
+            st.markdown("**★ STAAR Dates in this window**")
+            for s in upcoming_staar:
+                delta = (s["date"] - today).days
+                badge = f"🔔 Today" if delta == 0 else f"📅 in {delta}d — {s['date'].strftime('%b %d')}"
+                st.markdown(
+                    f"""<div style="background:#1c2128;border:1px solid #ffd700;border-radius:8px;
+                        padding:8px 14px;margin-bottom:4px;display:flex;gap:12px;align-items:center;">
+                      <span style="color:#ffd700;font-weight:700;font-size:12px;">{badge}</span>
+                      <span style="font-size:13px;color:#e6edf3;">{s['full']}</span>
+                    </div>""", unsafe_allow_html=True)
+            if st.button("➕ Add STAAR dates to Reminders", key="add_staar_rem"):
+                from services.reminders import add as _radd
+                for s in _SD:
+                    _radd("school", s["full"], f"STAAR {s['subject']} — Grades {s['grades']}",
+                          s["date"], 7, "once", "push,email")
+                st.success("STAAR exam dates added to reminders!")
+                st.rerun()
+    except Exception:
+        pass
 
 # ── All Reminders ─────────────────────────────────────────────────────────────
-with tab1:
+with tab2:
     try:
         df = read_sheet("reminders")
     except Exception:
@@ -58,7 +243,6 @@ with tab1:
         if sel_section != "All":
             df = df[df["section"].str.lower() == sel_section.lower()]
 
-        # Status filter
         show_done = st.checkbox("Show completed reminders", value=False)
         if not show_done:
             df = df[df["status"].str.upper() != "DONE"]
@@ -104,7 +288,7 @@ with tab1:
                         st.rerun()
 
 # ── Add Reminder ──────────────────────────────────────────────────────────────
-with tab2:
+with tab3:
     st.markdown("#### ➕ Add New Reminder")
     with st.form("add_reminder_form"):
         c1, c2 = st.columns(2)
@@ -139,7 +323,7 @@ with tab2:
                 st.error(f"Error: {e}")
 
 # ── 7-Day View ────────────────────────────────────────────────────────────────
-with tab3:
+with tab4:
     st.markdown("#### 📆 Next 7 Days")
     try:
         all_df = read_sheet("reminders")
@@ -149,6 +333,18 @@ with tab3:
             all_df["due_date"] = pd.to_datetime(all_df["due_date"], errors="coerce").dt.date
             today   = date.today()
             cutoff  = today + timedelta(days=7)
+
+            # Include STAAR dates in 7-day view
+            staar_items = []
+            try:
+                from services.staar_prep import STAAR_DATES_2026
+                for sd in STAAR_DATES_2026:
+                    if today <= sd["date"] <= cutoff:
+                        staar_items.append({"due_date": sd["date"], "title": sd["full"],
+                                            "section": "school", "message": f"Grades {sd['grades']}"})
+            except Exception:
+                pass
+
             week_df = all_df[
                 (all_df["status"].str.upper() != "DONE") &
                 (all_df["due_date"].notna()) &
@@ -156,24 +352,33 @@ with tab3:
                 (all_df["due_date"] <= cutoff)
             ].sort_values("due_date")
 
-            if week_df.empty:
+            all_items = list(week_df.to_dict("records")) + staar_items
+            all_items.sort(key=lambda x: x["due_date"])
+
+            if not all_items:
                 st.success("✅ Nothing due in the next 7 days!")
             else:
                 current_day = None
-                for _, r in week_df.iterrows():
-                    if r["due_date"] != current_day:
-                        current_day = r["due_date"]
-                        delta = (current_day - today).days
+                today_dt = date.today()
+                for r in all_items:
+                    d = r["due_date"]
+                    if d != current_day:
+                        current_day = d
+                        delta = (d - today_dt).days
                         day_label = "Today" if delta == 0 else ("Tomorrow" if delta == 1
-                                    else current_day.strftime("%A, %b %d"))
+                                    else d.strftime("%A, %b %d"))
                         st.markdown(f"**{day_label}**")
+                    is_staar = "STAAR" in str(r.get("title", ""))
+                    bg_staar = "background:#1c2128;border:1px solid #ffd700;" if is_staar else "background:#fff;border:1px solid #e2e8f0;"
+                    sec_color = "#ffd700" if is_staar else "#1d4ed8"
+                    sec_bg    = "#3d2e00" if is_staar else "#dbeafe"
                     st.markdown(
-                        f"""<div style="margin-left:16px;padding:8px 12px;
-                            background:#fff;border:1px solid #e2e8f0;border-radius:8px;
+                        f"""<div style="margin-left:16px;padding:8px 12px;{bg_staar}border-radius:8px;
                             margin-bottom:4px;display:flex;gap:12px;align-items:center;">
-                          <span style="font-size:12px;background:#dbeafe;color:#1d4ed8;
+                          <span style="font-size:12px;background:{sec_bg};color:{sec_color};
                             border-radius:10px;padding:2px 8px;">{r.get('section','').upper()}</span>
-                          <span style="font-size:13px;font-weight:600;">{r['title']}</span>
+                          <span style="font-size:13px;font-weight:600;color:{'#ffd700' if is_staar else '#0f172a'};">
+                            {'★ ' if is_staar else ''}{r['title']}</span>
                           <span style="font-size:12px;color:#64748b;margin-left:auto;">{r.get('message','')}</span>
                         </div>""",
                         unsafe_allow_html=True,
@@ -182,7 +387,7 @@ with tab3:
         st.error(f"Could not load reminders: {e}")
 
 # ── Class Schedule ─────────────────────────────────────────────────────────────
-with tab4:
+with tab5:
     st.markdown("#### 📚 Upcoming Class Schedule")
     try:
         from services.kids import upcoming_sessions, CHILDREN

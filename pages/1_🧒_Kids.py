@@ -440,23 +440,46 @@ with child_tab1:
 
             # ── Mini Tests ────────────────────────────────────────────────────
             with _sp_tabs[3]:
+                import random as _random
+                from services.staar_prep import MINI_TEST_EXTRA
                 st.markdown("##### ✏️ Strand-Level Mini Tests — Grade 6 (STAAR-Style MCQ)")
+                st.caption("5 questions randomly drawn from the pool each session · click 🔀 New Set for a fresh draw")
                 g6_mt_keys = [k for k in MINI_TESTS if k.startswith("Grade 6")]
                 mt_sel = st.selectbox("Choose a strand test", g6_mt_keys, key="g6_mt_sel")
-                questions = MINI_TESTS[mt_sel]
-                if st.session_state.get("g6_mt_last_sel") != mt_sel:
-                    st.session_state["g6_mt_answers"]   = [None] * len(questions)
-                    st.session_state["g6_mt_submitted"]  = False
-                    st.session_state["g6_mt_last_sel"]   = mt_sel
-                answers   = st.session_state.get("g6_mt_answers", [None] * len(questions))
-                submitted = st.session_state.get("g6_mt_submitted", False)
+
+                # Build combined pool (base + extra)
+                pool = MINI_TESTS[mt_sel] + MINI_TEST_EXTRA.get(mt_sel, [])
+                SAMPLE_N = min(5, len(pool))
+
+                def _fresh_draw(key, pool):
+                    idxs = _random.sample(range(len(pool)), SAMPLE_N)
+                    st.session_state[f"{key}_idxs"]      = idxs
+                    st.session_state[f"{key}_answers"]   = [None] * SAMPLE_N
+                    st.session_state[f"{key}_submitted"]  = False
+
+                state_key = "g6_mt"
+                if st.session_state.get(f"{state_key}_last_sel") != mt_sel:
+                    _fresh_draw(state_key, pool)
+                    st.session_state[f"{state_key}_last_sel"] = mt_sel
+
+                if st.button("🔀 New Set", key="g6_mt_newshuffle"):
+                    _fresh_draw(state_key, pool)
+                    st.rerun()
+
+                q_idxs    = st.session_state.get(f"{state_key}_idxs", list(range(SAMPLE_N)))
+                questions  = [pool[i] for i in q_idxs]
+                answers    = st.session_state.get(f"{state_key}_answers", [None] * SAMPLE_N)
+                submitted  = st.session_state.get(f"{state_key}_submitted", False)
+
                 for i, qdata in enumerate(questions):
                     st.markdown(f"**Q{i+1}. {qdata['q']}**")
-                    cur_idx = answers[i] if (answers[i] is not None) else 0
-                    sel = st.radio(f"q6_{i}", qdata["opts"], index=cur_idx,
-                                   key=f"g6_mt_{mt_sel}_{i}", label_visibility="collapsed")
-                    answers[i] = qdata["opts"].index(sel)
-                    if submitted:
+                    # index=None → no pre-selection until user picks
+                    sel = st.radio(f"q6_{i}", qdata["opts"], index=None,
+                                   key=f"g6_mt_{mt_sel}_{q_idxs[i]}_{i}",
+                                   label_visibility="collapsed")
+                    if sel is not None:
+                        answers[i] = qdata["opts"].index(sel)
+                    if submitted and answers[i] is not None:
                         correct = (answers[i] == qdata["ans"])
                         bg_c = "#dcfce7" if correct else "#fee2e2"
                         st.markdown(
@@ -465,25 +488,37 @@ with child_tab1:
                               <br><span style="color:#475569;">{qdata['exp']}</span>
                             </div>""", unsafe_allow_html=True)
                     st.markdown("---")
-                st.session_state["g6_mt_answers"] = answers
+                st.session_state[f"{state_key}_answers"] = answers
+
+                n_answered = sum(1 for a in answers if a is not None)
                 if not submitted:
-                    if st.button("Submit Answers", key="g6_mt_submit", type="primary"):
-                        st.session_state["g6_mt_submitted"] = True
+                    if n_answered < SAMPLE_N:
+                        st.caption(f"Answer all {SAMPLE_N} questions to submit ({n_answered}/{SAMPLE_N} answered)")
+                    if st.button("Submit Answers", key="g6_mt_submit", type="primary",
+                                 disabled=(n_answered < SAMPLE_N)):
+                        st.session_state[f"{state_key}_submitted"] = True
                         st.rerun()
                 else:
-                    score = sum(1 for i, q in enumerate(questions) if answers[i] == q["ans"])
-                    pct   = int(score / len(questions) * 100)
+                    score = sum(1 for i, q in enumerate(questions)
+                                if answers[i] is not None and answers[i] == q["ans"])
+                    pct   = int(score / SAMPLE_N * 100)
                     bg_s  = "#dcfce7" if pct >= 80 else "#fef9c3" if pct >= 60 else "#fee2e2"
                     msg   = "Great job! 🎉" if pct >= 80 else "Keep practicing! 💪" if pct >= 60 else "Review this strand! 📖"
                     st.markdown(
                         f"""<div style="background:{bg_s};border-radius:12px;padding:16px;
                             text-align:center;font-size:16px;font-weight:700;">
-                          Score: {score}/{len(questions)} — {pct}% &nbsp; {msg}
+                          Score: {score}/{SAMPLE_N} — {pct}% &nbsp; {msg}
                         </div>""", unsafe_allow_html=True)
-                    if st.button("Try Again", key="g6_mt_retry"):
-                        st.session_state["g6_mt_answers"]  = [None] * len(questions)
-                        st.session_state["g6_mt_submitted"] = False
-                        st.rerun()
+                    c_r1, c_r2 = st.columns(2)
+                    with c_r1:
+                        if st.button("Try Same Set Again", key="g6_mt_retry"):
+                            st.session_state[f"{state_key}_answers"]  = [None] * SAMPLE_N
+                            st.session_state[f"{state_key}_submitted"] = False
+                            st.rerun()
+                    with c_r2:
+                        if st.button("🔀 New Set", key="g6_mt_retry_new"):
+                            _fresh_draw(state_key, pool)
+                            st.rerun()
 
             # ── Official Tests ────────────────────────────────────────────────
             with _sp_tabs[4]:
