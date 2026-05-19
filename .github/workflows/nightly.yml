@@ -35,8 +35,16 @@ jobs:
 
       - name: Run market alert checker
         env:
-          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
-          SPREADSHEET_ID:    ${{ secrets.SPREADSHEET_ID }}
+          ANTHROPIC_API_KEY:  ${{ secrets.ANTHROPIC_API_KEY }}
+          SPREADSHEET_ID:     ${{ secrets.SPREADSHEET_ID }}
           GSHEET_CREDENTIALS: ${{ secrets.GSHEET_CREDENTIALS }}
-          NTFY_TOPIC:        ${{ secrets.NTFY_TOPIC }}
+          NTFY_TOPIC:         ${{ secrets.NTFY_TOPIC }}
         run: python jobs/check_market_alerts.py
+
+      - name: Fetch FISD calendar
+        env:
+          ANTHROPIC_API_KEY:  ${{ secrets.ANTHROPIC_API_KEY }}
+          SPREADSHEET_ID:     ${{ secrets.SPREADSHEET_ID }}
+          GSHEET_CREDENTIALS: ${{ secrets.GSHEET_CREDENTIALS }}
+          NTFY_TOPIC:         ${{ secrets.NTFY_TOPIC }}
+        run: python jobs/fetch_fisd_calendar.py

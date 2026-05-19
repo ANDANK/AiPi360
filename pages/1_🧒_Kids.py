@@ -65,29 +65,145 @@ with child_tab1:
         sub1, sub2, sub3, sub4 = st.tabs(["📅 Syllabus & Plan", "🎯 STAAR Prep", "🔢 Math Rocks", "🌟 Planning Ahead"])
 
         with sub1:
-            st.markdown("#### Monthly Syllabus & Plan")
-            col1, col2 = st.columns([2,1])
-            with col1:
-                coming_soon("Syllabus & YouTube resources — connect your school calendar to populate this")
-            with col2:
-                st.markdown("##### 🗓️ Upcoming School Events")
-                try:
-                    rem_df = read_sheet("reminders")
-                    school_rems = rem_df[rem_df["section"].str.lower().isin(["fisd","school","kids"])] if not rem_df.empty else pd.DataFrame()
-                    if school_rems.empty:
-                        st.info("No school reminders yet.")
-                    else:
-                        for _, r in school_rems.head(5).iterrows():
-                            st.markdown(f"• **{r['title']}** — {r.get('due_date','')}")
-                except Exception:
-                    st.info("Add school reminders in the Calendar section.")
+            st.markdown("#### 📅 FISD School Calendar — Wortham Intermediate")
 
-                st.markdown("##### 🔔 Add School Reminder")
+            # ── School info strip ─────────────────────────────────────────────
+            st.markdown("""
+<div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:10px;
+     padding:12px 18px;margin-bottom:14px;display:flex;gap:32px;flex-wrap:wrap;font-size:13px;">
+  <div><b>🏫 School</b><br>Wortham Intermediate</div>
+  <div><b>📍 Address</b><br>7404 Kickapoo Dr, McKinney TX 75070</div>
+  <div><b>📞 Phone</b><br>469.633.3475</div>
+  <div><b>📧 Email</b><br>wortham@friscoisd.org</div>
+  <div><b>🎓 Grade</b><br>6th Grade · 2026-2027</div>
+  <div><b>🗓️ First Day</b><br>August 12, 2026</div>
+</div>""", unsafe_allow_html=True)
+
+            # ── Calendar display ──────────────────────────────────────────────
+            from services.fisd_calendar import (
+                get_events, upcoming_events, no_school_days,
+                seed_baseline, TYPE_STYLE
+            )
+
+            cal_tab1, cal_tab2, cal_tab3, cal_tab4 = st.tabs([
+                "📆 Upcoming", "🔴 No School Days", "📋 Full Calendar", "➕ Add / Manage"
+            ])
+
+            with cal_tab1:
+                hdr, btn_col = st.columns([5,1])
+                with hdr:
+                    st.markdown("##### 📆 Next 30 Days")
+                with btn_col:
+                    if st.button("🔄 Refresh", key="fisd_refresh"):
+                        read_sheet.clear() if hasattr(read_sheet, "clear") else None
+                        st.rerun()
+
+                try:
+                    up_df = upcoming_events(days=30)
+                    if up_df.empty:
+                        # Auto-seed baseline on first visit
+                        seeded = seed_baseline()
+                        if seeded:
+                            st.success(f"✅ Seeded {seeded} baseline FISD dates. Refresh to view.")
+                            st.rerun()
+                        else:
+                            st.info("No upcoming events. Calendar may be loading.")
+                    else:
+                        today_d = date.today()
+                        for _, r in up_df.iterrows():
+                            etype  = str(r.get("type","Other"))
+                            bg, color, icon = TYPE_STYLE.get(etype, TYPE_STYLE["Other"])
+                            delta  = (r["date"] - today_d).days
+                            when   = "Today" if delta==0 else (f"Tomorrow" if delta==1 else f"In {delta}d — {r['date'].strftime('%a %b %d')}")
+                            source = r.get("source","")
+                            est    = " *(est.)*" if "estimated" in str(source) else ""
+                            st.markdown(
+                                f"""<div style="background:{bg};border-left:4px solid {color};
+                                    border-radius:8px;padding:9px 14px;margin-bottom:5px;
+                                    display:flex;align-items:center;gap:14px;">
+                                  <span style="min-width:130px;font-size:12px;color:{color};font-weight:600;">{icon} {when}</span>
+                                  <span style="font-size:13px;font-weight:600;color:#0f172a;">{r['event']}{est}</span>
+                                  <span style="margin-left:auto;font-size:11px;color:#94a3b8;">{etype}</span>
+                                </div>""",
+                                unsafe_allow_html=True,
+                            )
+                except Exception as e:
+                    st.error(f"Could not load calendar: {e}")
+
+            with cal_tab2:
+                st.markdown("##### 🔴 All No-School Days 2026-2027")
+                try:
+                    ns_df = no_school_days()
+                    if ns_df.empty:
+                        seed_baseline()
+                        st.rerun()
+                    else:
+                        ns_df["date"] = pd.to_datetime(ns_df["date"], errors="coerce").dt.date
+                        ns_df["day"]  = pd.to_datetime(ns_df["date"].astype(str)).dt.strftime("%A")
+                        st.dataframe(
+                            ns_df[["date","day","event","type","source"]].rename(
+                                columns={"date":"Date","day":"Day","event":"Event",
+                                         "type":"Type","source":"Source"}
+                            ),
+                            use_container_width=True, hide_index=True,
+                            column_config={"Date": st.column_config.DateColumn(format="MMM DD, YYYY")},
+                        )
+                        st.caption(f"*(Est.) = estimated from standard FISD pattern — verify at friscoisd.org*")
+                except Exception as e:
+                    st.error(f"Could not load: {e}")
+
+            with cal_tab3:
+                st.markdown("##### 📋 Full 2026-2027 Calendar")
+                try:
+                    full_df = get_events("2026-2027")
+                    if full_df.empty:
+                        st.info("No events yet.")
+                    else:
+                        full_df["date"] = pd.to_datetime(full_df["date"], errors="coerce").dt.date
+                        type_filter = st.multiselect(
+                            "Filter by type",
+                            options=list(TYPE_STYLE.keys()),
+                            default=list(TYPE_STYLE.keys()),
+                            key="fisd_type_filter",
+                        )
+                        filtered = full_df[full_df["type"].isin(type_filter)].sort_values("date")
+                        st.dataframe(
+                            filtered[["date","event","type","source"]],
+                            use_container_width=True, hide_index=True,
+                            column_config={"date": st.column_config.DateColumn(format="MMM DD, YYYY")},
+                        )
+                except Exception as e:
+                    st.error(f"Could not load: {e}")
+
+            with cal_tab4:
+                st.markdown("##### ➕ Add Event Manually")
+                with st.form("fisd_add_event"):
+                    c1, c2, c3 = st.columns(3)
+                    with c1: ev_name = st.text_input("Event Name")
+                    with c2: ev_date = st.date_input("Date", value=date.today())
+                    with c3: ev_type = st.selectbox("Type", list(TYPE_STYLE.keys()))
+                    if st.form_submit_button("Add Event", type="primary"):
+                        if ev_name:
+                            from services.fisd_calendar import upsert_event
+                            upsert_event(ev_date.isoformat(), ev_name, ev_type, "manual")
+                            st.success(f"✅ Added: {ev_name}")
+                            st.rerun()
+
+                st.markdown("---")
+                st.markdown("##### 🔄 Force Re-seed Baseline Dates")
+                st.caption("Use this to reload the standard FISD 2026-2027 holiday pattern.")
+                if st.button("Re-seed baseline dates", type="secondary"):
+                    n = seed_baseline(force=True)
+                    st.success(f"✅ Re-seeded {n} baseline events.")
+                    st.rerun()
+
+                st.markdown("---")
+                st.markdown("##### 🔔 Add FISD Reminder")
                 with st.form("school_rem_form"):
                     r_title = st.text_input("Event / Reminder")
-                    r_date  = st.date_input("Date", value=date.today())
+                    r_date  = st.date_input("Reminder Date", value=date.today())
                     r_msg   = st.text_area("Details", height=60)
-                    if st.form_submit_button("➕ Add", type="primary"):
+                    if st.form_submit_button("➕ Add Reminder", type="primary"):
                         from services.reminders import add as add_rem
                         add_rem("fisd", r_title, r_msg, r_date)
                         st.success("Reminder added!")

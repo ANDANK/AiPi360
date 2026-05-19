@@ -20,6 +20,7 @@ TAB_SCHEMAS: dict[str, list[str]] = {
     "classes":           ["id","child","name","provider","cost","frequency","start_date","end_date","active"],
     "expenses_log":      ["date","section","category","description","amount"],
     "tamil_reading_log": ["date","child","minutes","material"],
+    "fisd_calendar":     ["date","event","type","source","school_year","fetched_at"],
 }
 
 
