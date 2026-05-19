@@ -169,21 +169,20 @@ with child_tab1:
                                 f'margin:4px 0 6px 0;font-weight:600;">'
                                 f'{_html.escape(label)}</div>'
                             )
-                        col.markdown(
-                            f"""<div style="background:{style['bg']};border:1px solid {style['border']};
-                                border-radius:12px;padding:14px;margin-bottom:12px;">
-                              <div style="font-size:13px;font-weight:700;color:{style['border']};
-                                   margin-bottom:6px;">{style['icon']} {subj}</div>
-                              <div style="font-size:10px;color:{style['tag_color']};
-                                   background:{style['tag_bg']};border-radius:6px;
-                                   padding:2px 8px;display:inline-block;margin-bottom:4px;">
-                                {TEA_CODES[subj]}
-                              </div>
-                              {strand_badge}
-                              {topic_html}
-                            </div>""",
-                            unsafe_allow_html=True,
+                        card_html = (
+                            f'<div style="background:{style["bg"]};border:1px solid {style["border"]};'
+                            f'border-radius:12px;padding:14px;margin-bottom:12px;">'
+                            f'<div style="font-size:13px;font-weight:700;color:{style["border"]};'
+                            f'margin-bottom:6px;">{style["icon"]} {subj}</div>'
+                            f'<div style="font-size:10px;color:{style["tag_color"]};'
+                            f'background:{style["tag_bg"]};border-radius:6px;'
+                            f'padding:2px 8px;display:inline-block;margin-bottom:4px;">'
+                            f'{TEA_CODES[subj]}</div>'
+                            + strand_badge
+                            + topic_html
+                            + '</div>'
                         )
+                        col.markdown(card_html, unsafe_allow_html=True)
 
                 else:  # By Subject
                     _SRC_COLORS = {
