@@ -17,7 +17,7 @@ TAB_SCHEMAS: dict[str, list[str]] = {
     "market_alerts":     ["id","ticker","condition","threshold","channels","active"],
     "insurance_policies":["id","type","provider","policy_number","premium","frequency","due_date","notes","active"],
     "cc_cards":          ["id","name","bank","last4","annual_fee","fee_due_date","credit_limit","perks","active"],
-    "classes":           ["id","child","name","provider","cost","fee_frequency","days","frequency","start_date","end_date","active","time_start","time_end","location"],
+    "classes":           ["id","child","name","provider","cost","fee_frequency","days","frequency","start_date","end_date","active","paused","time_start","time_end","location"],
     "expenses_log":      ["date","section","category","description","amount"],
     "tamil_reading_log": ["date","child","minutes","material"],
     "fisd_calendar":     ["date","event","type","source","school_year","fetched_at"],

@@ -40,12 +40,19 @@ def add_class(child: str, name: str, provider: str, cost: float,
         cid, child, name, provider, cost, fee_frequency, days, frequency,
         start_date.isoformat(),
         end_date.isoformat() if end_date else "",
-        "TRUE",
-        time_start,
-        time_end,
-        location,
+        "TRUE", "FALSE",          # active, paused
+        time_start, time_end, location,
     ])
     return cid
+
+
+def toggle_pause(class_id: str) -> bool:
+    """Flip paused flag. Returns new paused state (True = now paused)."""
+    df = list_classes(active_only=False)
+    cur = str(df.loc[df["id"] == class_id, "paused"].iloc[0]).upper() == "TRUE"
+    df.loc[df["id"] == class_id, "paused"] = "FALSE" if cur else "TRUE"
+    overwrite_sheet(CLASSES_TAB, df)
+    return not cur
 
 
 def update_class(class_id: str, **kwargs) -> None:
@@ -66,9 +73,11 @@ def monthly_cost(child: str | None = None) -> float:
     df = list_classes(child=child)
     if df.empty:
         return 0.0
-    # Multipliers based on fee_frequency (billing cycle → monthly equivalent)
+    # Exclude paused classes from cost
+    if "paused" in df.columns:
+        df = df[df["paused"].astype(str).str.upper() != "TRUE"]
     fee_mult = {
-        "per session": 4.33,   # assumes ~4.33 sessions/month (weekly)
+        "per session": 4.33,
         "monthly":     1.0,
         "quarterly":   1 / 3,
         "semi-annual": 1 / 6,
@@ -83,7 +92,8 @@ def monthly_cost(child: str | None = None) -> float:
     return total
 
 
-def upcoming_sessions(child: str | None = None, days_ahead: int = 14) -> list[dict]:
+def upcoming_sessions(child: str | None = None, days_ahead: int = 14,
+                      include_paused: bool = False) -> list[dict]:
     """Return upcoming class occurrences within the next `days_ahead` days.
 
     Only classes with at least one day-of-week set are included.
@@ -92,6 +102,10 @@ def upcoming_sessions(child: str | None = None, days_ahead: int = 14) -> list[di
     df = list_classes(child=child)
     if df.empty:
         return []
+
+    # Exclude paused classes from schedule unless explicitly requested
+    if not include_paused and "paused" in df.columns:
+        df = df[df["paused"].astype(str).str.upper() != "TRUE"]
 
     today  = date.today()
     cutoff = today + timedelta(days=days_ahead)

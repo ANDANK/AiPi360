@@ -13,8 +13,9 @@ require_auth()
 
 from components.metric_card import section_header, coming_soon
 from components.reminder_banner import render_section_reminders
-from services.kids import (list_classes, add_class, delete_class, monthly_cost,
-                           upcoming_sessions, FREQUENCIES, FEE_FREQUENCIES, DAYS_OF_WEEK)
+from services.kids import (list_classes, add_class, delete_class, toggle_pause,
+                           monthly_cost, upcoming_sessions,
+                           FREQUENCIES, FEE_FREQUENCIES, DAYS_OF_WEEK)
 from backend.gsheet import read_sheet
 
 # ── CSS ───────────────────────────────────────────────────────────────────────
@@ -713,20 +714,70 @@ Total: ~6 presentations per school year.
 
         with cl1:
             if not cls_df.empty:
-                disp_cols = [c for c in ["name","provider","days","time_start","time_end","location","cost","frequency","start_date"]
-                             if c in cls_df.columns]
-                st.dataframe(cls_df[disp_cols], use_container_width=True, hide_index=True)
-                st.markdown("---")
-                st.markdown("##### 🗑️ Remove a Class")
-                del_id = st.selectbox("Select class to deactivate",
-                                      ["— select —"] + cls_df["id"].tolist(),
-                                      format_func=lambda x: cls_df.loc[cls_df["id"]==x,"name"].iloc[0] if x != "— select —" else x,
-                                      key="del_son_class")
-                if del_id != "— select —":
-                    if st.button("Deactivate class", key="deact_son"):
-                        delete_class(del_id)
-                        st.success("Deactivated.")
-                        st.rerun()
+                # Header row
+                hc = st.columns([2.2, 1.8, 1.6, 1.4, 1.2, 0.9, 0.9])
+                for col, lbl in zip(hc, ["Class / Provider", "Days", "Time", "Fee", "Meets", "", ""]):
+                    col.markdown(f"<span style='font-size:11px;font-weight:600;color:#64748b;'>{lbl}</span>",
+                                 unsafe_allow_html=True)
+                st.markdown("<hr style='margin:4px 0 8px'>", unsafe_allow_html=True)
+
+                for _, cls in cls_df.iterrows():
+                    is_paused = str(cls.get("paused", "FALSE")).upper() == "TRUE"
+                    row_bg    = "#fafafa" if is_paused else "#fff"
+                    row_op    = "0.55" if is_paused else "1"
+                    c1, c2, c3, c4, c5, c6, c7 = st.columns([2.2, 1.8, 1.6, 1.4, 1.2, 0.9, 0.9])
+                    with c1:
+                        badge = ('<span style="background:#fef9c3;color:#854d0e;font-size:10px;'
+                                 'border-radius:6px;padding:1px 6px;margin-left:4px;">⏸ paused</span>'
+                                 if is_paused else "")
+                        st.markdown(
+                            f'<div style="opacity:{row_op}">'
+                            f'<span style="font-weight:600;font-size:13px;">{cls["name"]}</span>{badge}<br>'
+                            f'<span style="font-size:11px;color:#64748b;">{cls.get("provider","")}</span>'
+                            f'</div>', unsafe_allow_html=True)
+                    with c2:
+                        days_disp = str(cls.get("days", "") or "—")
+                        loc_disp  = str(cls.get("location", "") or "")
+                        st.markdown(
+                            f'<div style="font-size:12px;opacity:{row_op}">{days_disp}'
+                            + (f'<br><span style="font-size:11px;color:#64748b;">📍 {loc_disp}</span>' if loc_disp else "")
+                            + "</div>", unsafe_allow_html=True)
+                    with c3:
+                        ts = str(cls.get("time_start", "") or "")
+                        te = str(cls.get("time_end", "") or "")
+                        st.markdown(f'<div style="font-size:12px;opacity:{row_op}">'
+                                    f'{"–".join(filter(None,[ts,te])) or "—"}</div>',
+                                    unsafe_allow_html=True)
+                    with c4:
+                        cost = cls.get("cost", 0) or 0
+                        ff   = str(cls.get("fee_frequency", "") or "")
+                        st.markdown(f'<div style="font-size:12px;opacity:{row_op}">'
+                                    f'${float(cost):,.0f}<br>'
+                                    f'<span style="font-size:11px;color:#64748b;">{ff}</span></div>',
+                                    unsafe_allow_html=True)
+                    with c5:
+                        st.markdown(f'<div style="font-size:12px;opacity:{row_op}">'
+                                    f'{cls.get("frequency","")}</div>', unsafe_allow_html=True)
+                    with c6:
+                        lbl = "▶ Resume" if is_paused else "⏸ Pause"
+                        if st.button(lbl, key=f"pause_son_{cls['id']}",
+                                     use_container_width=True):
+                            toggle_pause(cls["id"])
+                            st.rerun()
+                    with c7:
+                        if st.button("🗑️", key=f"del_son_{cls['id']}",
+                                     help="Delete class", use_container_width=True):
+                            delete_class(cls["id"])
+                            st.rerun()
+                    st.markdown("<hr style='margin:2px 0;border-color:#f1f5f9'>",
+                                unsafe_allow_html=True)
+
+                paused_count = sum(
+                    1 for _, r in cls_df.iterrows()
+                    if str(r.get("paused","")).upper() == "TRUE"
+                )
+                if paused_count:
+                    st.caption(f"⏸ {paused_count} class(es) paused — excluded from cost & schedule")
             else:
                 st.info("No classes yet. Use the ➕ Add Class tab to get started.")
 
@@ -854,20 +905,68 @@ with child_tab2:
 
         with dl1:
             if not cls_df_d.empty:
-                disp_cols = [c for c in ["name","provider","days","time_start","time_end","location","cost","frequency","start_date"]
-                             if c in cls_df_d.columns]
-                st.dataframe(cls_df_d[disp_cols], use_container_width=True, hide_index=True)
-                st.markdown("---")
-                st.markdown("##### 🗑️ Remove a Class")
-                del_id_d = st.selectbox("Select class to deactivate",
-                                        ["— select —"] + cls_df_d["id"].tolist(),
-                                        format_func=lambda x: cls_df_d.loc[cls_df_d["id"]==x,"name"].iloc[0] if x != "— select —" else x,
-                                        key="del_daughter_class")
-                if del_id_d != "— select —":
-                    if st.button("Deactivate class", key="deact_daughter"):
-                        delete_class(del_id_d)
-                        st.success("Deactivated.")
-                        st.rerun()
+                hc = st.columns([2.2, 1.8, 1.6, 1.4, 1.2, 0.9, 0.9])
+                for col, lbl in zip(hc, ["Class / Provider", "Days", "Time", "Fee", "Meets", "", ""]):
+                    col.markdown(f"<span style='font-size:11px;font-weight:600;color:#64748b;'>{lbl}</span>",
+                                 unsafe_allow_html=True)
+                st.markdown("<hr style='margin:4px 0 8px'>", unsafe_allow_html=True)
+
+                for _, cls in cls_df_d.iterrows():
+                    is_paused = str(cls.get("paused", "FALSE")).upper() == "TRUE"
+                    row_op    = "0.55" if is_paused else "1"
+                    c1, c2, c3, c4, c5, c6, c7 = st.columns([2.2, 1.8, 1.6, 1.4, 1.2, 0.9, 0.9])
+                    with c1:
+                        badge = ('<span style="background:#fef9c3;color:#854d0e;font-size:10px;'
+                                 'border-radius:6px;padding:1px 6px;margin-left:4px;">⏸ paused</span>'
+                                 if is_paused else "")
+                        st.markdown(
+                            f'<div style="opacity:{row_op}">'
+                            f'<span style="font-weight:600;font-size:13px;">{cls["name"]}</span>{badge}<br>'
+                            f'<span style="font-size:11px;color:#64748b;">{cls.get("provider","")}</span>'
+                            f'</div>', unsafe_allow_html=True)
+                    with c2:
+                        days_disp = str(cls.get("days", "") or "—")
+                        loc_disp  = str(cls.get("location", "") or "")
+                        st.markdown(
+                            f'<div style="font-size:12px;opacity:{row_op}">{days_disp}'
+                            + (f'<br><span style="font-size:11px;color:#64748b;">📍 {loc_disp}</span>' if loc_disp else "")
+                            + "</div>", unsafe_allow_html=True)
+                    with c3:
+                        ts = str(cls.get("time_start", "") or "")
+                        te = str(cls.get("time_end", "") or "")
+                        st.markdown(f'<div style="font-size:12px;opacity:{row_op}">'
+                                    f'{"–".join(filter(None,[ts,te])) or "—"}</div>',
+                                    unsafe_allow_html=True)
+                    with c4:
+                        cost = cls.get("cost", 0) or 0
+                        ff   = str(cls.get("fee_frequency", "") or "")
+                        st.markdown(f'<div style="font-size:12px;opacity:{row_op}">'
+                                    f'${float(cost):,.0f}<br>'
+                                    f'<span style="font-size:11px;color:#64748b;">{ff}</span></div>',
+                                    unsafe_allow_html=True)
+                    with c5:
+                        st.markdown(f'<div style="font-size:12px;opacity:{row_op}">'
+                                    f'{cls.get("frequency","")}</div>', unsafe_allow_html=True)
+                    with c6:
+                        lbl = "▶ Resume" if is_paused else "⏸ Pause"
+                        if st.button(lbl, key=f"pause_dau_{cls['id']}",
+                                     use_container_width=True):
+                            toggle_pause(cls["id"])
+                            st.rerun()
+                    with c7:
+                        if st.button("🗑️", key=f"del_dau_{cls['id']}",
+                                     help="Delete class", use_container_width=True):
+                            delete_class(cls["id"])
+                            st.rerun()
+                    st.markdown("<hr style='margin:2px 0;border-color:#f1f5f9'>",
+                                unsafe_allow_html=True)
+
+                paused_count_d = sum(
+                    1 for _, r in cls_df_d.iterrows()
+                    if str(r.get("paused","")).upper() == "TRUE"
+                )
+                if paused_count_d:
+                    st.caption(f"⏸ {paused_count_d} class(es) paused — excluded from cost & schedule")
             else:
                 st.info("No classes yet. Use the ➕ Add Class tab to get started.")
 
