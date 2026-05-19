@@ -6,9 +6,14 @@ from backend.gsheet import read_sheet, append_row, overwrite_sheet
 
 CLASSES_TAB = "classes"
 
-CHILDREN     = ["Son", "Daughter"]
-FREQUENCIES  = ["Weekly", "Bi-Weekly", "Monthly", "One-Time", "Annual", "Free"]
-DAYS_OF_WEEK = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
+CHILDREN       = ["Son", "Daughter"]
+DAYS_OF_WEEK   = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
+
+# Class meeting schedule (how often the class meets)
+FREQUENCIES    = ["Weekly", "Bi-Weekly", "Monthly", "One-Time"]
+
+# Fee billing cycle (how often you pay / cost unit)
+FEE_FREQUENCIES = ["Per Session", "Monthly", "Quarterly", "Semi-Annual", "Annual", "Free"]
 
 _DAY_NUM = {d: i for i, d in enumerate(DAYS_OF_WEEK)}
 
@@ -25,19 +30,17 @@ def list_classes(child: str | None = None, active_only: bool = True) -> pd.DataF
 
 
 def add_class(child: str, name: str, provider: str, cost: float,
-              frequency: str, start_date: date,
+              fee_frequency: str, days: str, frequency: str, start_date: date,
               end_date: date | None = None,
-              days: str = "",
               time_start: str = "",
               time_end: str = "",
               location: str = "") -> str:
     cid = str(uuid.uuid4())[:8]
     append_row(CLASSES_TAB, [
-        cid, child, name, provider, cost, frequency,
+        cid, child, name, provider, cost, fee_frequency, days, frequency,
         start_date.isoformat(),
         end_date.isoformat() if end_date else "",
         "TRUE",
-        days,
         time_start,
         time_end,
         location,
@@ -63,13 +66,19 @@ def monthly_cost(child: str | None = None) -> float:
     df = list_classes(child=child)
     if df.empty:
         return 0.0
-    monthly_mult = {
-        "weekly": 4.33, "bi-weekly": 2.17, "monthly": 1,
-        "one-time": 0, "annual": 1/12, "free": 0,
+    # Multipliers based on fee_frequency (billing cycle → monthly equivalent)
+    fee_mult = {
+        "per session": 4.33,   # assumes ~4.33 sessions/month (weekly)
+        "monthly":     1.0,
+        "quarterly":   1 / 3,
+        "semi-annual": 1 / 6,
+        "annual":      1 / 12,
+        "free":        0.0,
     }
     total = 0.0
     for _, r in df.iterrows():
-        m = monthly_mult.get(str(r.get("frequency","")).lower(), 1)
+        ff = str(r.get("fee_frequency", r.get("frequency", "monthly"))).lower()
+        m  = fee_mult.get(ff, 1.0)
         total += float(r.get("cost", 0) or 0) * m
     return total
 

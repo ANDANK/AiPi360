@@ -14,7 +14,7 @@ require_auth()
 from components.metric_card import section_header, coming_soon
 from components.reminder_banner import render_section_reminders
 from services.kids import (list_classes, add_class, delete_class, monthly_cost,
-                           upcoming_sessions, FREQUENCIES, DAYS_OF_WEEK)
+                           upcoming_sessions, FREQUENCIES, FEE_FREQUENCIES, DAYS_OF_WEEK)
 from backend.gsheet import read_sheet
 
 # ── CSS ───────────────────────────────────────────────────────────────────────
@@ -770,14 +770,18 @@ Total: ~6 presentations per school year.
                     cname  = st.text_input("Class Name *", placeholder="e.g. Chess, Swim, iTalk")
                     cprov  = st.text_input("Provider / Instructor")
                     cloc   = st.text_input("Location", placeholder="e.g. Rec Center, Online")
-                with c2:
-                    ccost  = st.number_input("Cost per session ($)", min_value=0.0, step=5.0)
-                    cfreq  = st.selectbox("Frequency", FREQUENCIES)
                     cstart = st.date_input("Start Date", value=date.today())
+                with c2:
+                    ccost  = st.number_input("Fee Amount ($)", min_value=0.0, step=5.0,
+                                             help="Amount per billing period")
+                    cfeef  = st.selectbox("Fee Frequency", FEE_FREQUENCIES,
+                                          help="How often this fee is charged")
+                    cfreq  = st.selectbox("Class Meets", FREQUENCIES,
+                                          help="How often the class actually meets")
 
-                st.markdown("##### Schedule")
+                st.markdown("##### Class Days & Time")
                 cdays = st.multiselect("Class Days *", DAYS_OF_WEEK,
-                                       help="Select all days this class meets")
+                                       help="Select all days this class meets each week")
                 t1, t2 = st.columns(2)
                 with t1:
                     ct_start = st.time_input("Start Time", value=None, key="son_tstart")
@@ -794,21 +798,20 @@ Total: ~6 presentations per school year.
                     elif not cdays:
                         st.error("Select at least one class day.")
                     else:
-                        days_str   = ",".join(cdays)
-                        ts_str     = ct_start.strftime("%I:%M %p") if ct_start else ""
-                        te_str     = ct_end.strftime("%I:%M %p") if ct_end else ""
-                        add_class("Son", cname, cprov, ccost, cfreq, cstart,
-                                  days=days_str, time_start=ts_str,
-                                  time_end=te_str, location=cloc)
+                        days_str = ",".join(cdays)
+                        ts_str   = ct_start.strftime("%I:%M %p") if ct_start else ""
+                        te_str   = ct_end.strftime("%I:%M %p") if ct_end else ""
+                        add_class("Son", cname, cprov, ccost, cfeef, days_str, cfreq, cstart,
+                                  time_start=ts_str, time_end=te_str, location=cloc)
                         if auto_remind:
                             from services.reminders import add as add_rem
                             for d in cdays:
-                                # next occurrence of this day
-                                today_d = date.today()
-                                d_num   = DAYS_OF_WEEK.index(d)
+                                today_d    = date.today()
+                                d_num      = DAYS_OF_WEEK.index(d)
                                 days_until = (d_num - today_d.weekday()) % 7
-                                next_d  = today_d + timedelta(days=days_until if days_until else 7)
-                                detail  = f"{cprov}" + (f" · {ts_str}–{te_str}" if ts_str else "") + (f" · {cloc}" if cloc else "")
+                                next_d     = today_d + timedelta(days=days_until if days_until else 7)
+                                detail     = (f"{cprov}" + (f" · {ts_str}–{te_str}" if ts_str else "")
+                                              + (f" · {cloc}" if cloc else ""))
                                 add_rem("kids", f"📚 {cname} — {d}", detail, next_d,
                                         remind_days=0, frequency="weekly", channels="push")
                         st.success(f"✅ Added: {cname}" + (" · reminders created" if auto_remind else ""))
@@ -908,12 +911,18 @@ with child_tab2:
                     cname  = st.text_input("Class Name *")
                     cprov  = st.text_input("Provider / Instructor")
                     cloc   = st.text_input("Location", placeholder="e.g. Online, Studio")
-                with c2:
-                    ccost  = st.number_input("Cost per session ($)", min_value=0.0, step=5.0)
-                    cfreq  = st.selectbox("Frequency", FREQUENCIES)
                     cstart = st.date_input("Start Date", value=date.today())
+                with c2:
+                    ccost  = st.number_input("Fee Amount ($)", min_value=0.0, step=5.0,
+                                             help="Amount per billing period")
+                    cfeef  = st.selectbox("Fee Frequency", FEE_FREQUENCIES,
+                                          help="How often this fee is charged",
+                                          key="d_feef")
+                    cfreq  = st.selectbox("Class Meets", FREQUENCIES,
+                                          help="How often the class actually meets",
+                                          key="d_cfreq")
 
-                st.markdown("##### Schedule")
+                st.markdown("##### Class Days & Time")
                 cdays = st.multiselect("Class Days *", DAYS_OF_WEEK, key="daughter_days")
                 t1, t2 = st.columns(2)
                 with t1:
@@ -934,9 +943,8 @@ with child_tab2:
                         days_str  = ",".join(cdays)
                         ts_str    = ct_start.strftime("%I:%M %p") if ct_start else ""
                         te_str    = ct_end.strftime("%I:%M %p") if ct_end else ""
-                        add_class("Daughter", cname, cprov, ccost, cfreq, cstart,
-                                  days=days_str, time_start=ts_str,
-                                  time_end=te_str, location=cloc)
+                        add_class("Daughter", cname, cprov, ccost, cfeef, days_str, cfreq, cstart,
+                                  time_start=ts_str, time_end=te_str, location=cloc)
                         if auto_remind_d:
                             from services.reminders import add as add_rem
                             for d in cdays:
@@ -944,7 +952,8 @@ with child_tab2:
                                 d_num      = DAYS_OF_WEEK.index(d)
                                 days_until = (d_num - today_d2.weekday()) % 7
                                 next_d     = today_d2 + timedelta(days=days_until if days_until else 7)
-                                detail     = f"{cprov}" + (f" · {ts_str}–{te_str}" if ts_str else "") + (f" · {cloc}" if cloc else "")
+                                detail     = (f"{cprov}" + (f" · {ts_str}–{te_str}" if ts_str else "")
+                                              + (f" · {cloc}" if cloc else ""))
                                 add_rem("kids", f"📚 {cname} — {d}", detail, next_d,
                                         remind_days=0, frequency="weekly", channels="push")
                         st.success(f"✅ Added: {cname}" + (" · reminders created" if auto_remind_d else ""))
