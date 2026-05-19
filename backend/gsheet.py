@@ -24,9 +24,11 @@ TAB_SCHEMAS: dict[str, list[str]] = {
 
 @st.cache_resource
 def _get_client():
-    creds = Credentials.from_service_account_info(
-        dict(st.secrets["gsheet"]), scopes=_SCOPES
-    )
+    creds_dict = dict(st.secrets["gsheet"])
+    # Streamlit Cloud double-escapes \n in private_key — fix it
+    if "private_key" in creds_dict:
+        creds_dict["private_key"] = creds_dict["private_key"].replace("\\n", "\n")
+    creds = Credentials.from_service_account_info(creds_dict, scopes=_SCOPES)
     return gspread.authorize(creds)
 
 
