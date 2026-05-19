@@ -28,9 +28,9 @@ jobs:
           SPREADSHEET_ID:         ${{ secrets.SPREADSHEET_ID }}
           GSHEET_CREDENTIALS:     ${{ secrets.GSHEET_CREDENTIALS }}
           NTFY_TOPIC:             ${{ secrets.NTFY_TOPIC }}
-          EMAIL_SENDER:           ${{ secrets.EMAIL_SENDER }}
-          EMAIL_APP_PASSWORD:     ${{ secrets.EMAIL_APP_PASSWORD }}
-          EMAIL_RECIPIENT:        ${{ secrets.EMAIL_RECIPIENT }}
+          RESEND_API_KEY:         ${{ secrets.RESEND_API_KEY }}
+          RESEND_FROM:            ${{ secrets.RESEND_FROM }}
+          RESEND_RECIPIENT:       ${{ secrets.RESEND_RECIPIENT }}
         run: python jobs/check_reminders.py
 
       - name: Run market alert checker

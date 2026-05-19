@@ -1,38 +1,33 @@
-"""Notification dispatch — Email (SMTP) + ntfy.sh push.
-Channels are pluggable: add Discord/Telegram by extending _DISPATCHERS.
+"""Notification dispatch — Resend (email) + ntfy.sh push.
+Channels are pluggable: add more by extending _DISPATCHERS.
 """
-import smtplib
 import requests
 import streamlit as st
-from email.mime.text import MIMEText
-from email.mime.multipart import MIMEMultipart
 
 
-# ── Email ─────────────────────────────────────────────────────────────────────
+# ── Resend email ──────────────────────────────────────────────────────────────
 
 def _send_email(subject: str, body: str) -> None:
-    cfg = st.secrets.get("email", {})
-    msg = MIMEMultipart("alternative")
-    msg["From"]    = cfg["sender"]
-    msg["To"]      = cfg["recipient"]
-    msg["Subject"] = subject
-    msg.attach(MIMEText(body, "html"))
-    with smtplib.SMTP(cfg.get("smtp_host", "smtp.gmail.com"),
-                      int(cfg.get("smtp_port", 587))) as s:
-        s.ehlo()
-        s.starttls()
-        s.login(cfg["sender"], cfg["app_password"])
-        s.sendmail(cfg["sender"], cfg["recipient"], msg.as_string())
+    import resend
+    cfg = st.secrets.get("resend", {})
+    resend.api_key = cfg.get("api_key", "")
+    resend.Emails.send({
+        "from":    cfg.get("from_address", "AiPi360 <notifications@yourdomain.com>"),
+        "to":      [cfg.get("recipient", "")],
+        "subject": subject,
+        "html":    body,
+    })
 
 
 # ── ntfy.sh push ──────────────────────────────────────────────────────────────
 
 _PRIORITY_MAP = {"low": "low", "default": "default", "high": "high", "urgent": "urgent"}
 
+
 def _send_push(title: str, message: str, priority: str = "default",
                tags: list[str] | None = None) -> None:
-    cfg   = st.secrets.get("ntfy", {})
-    topic = cfg.get("topic", "aipi360")
+    cfg    = st.secrets.get("ntfy", {})
+    topic  = cfg.get("topic", "aipi360")
     server = cfg.get("server", "https://ntfy.sh")
     headers: dict = {
         "Title":    title,
@@ -81,7 +76,7 @@ def notify(
 def test_notifications() -> dict[str, str]:
     return notify(
         "AiPi360 Test 🎉",
-        "Notifications are working correctly.",
+        "<p>Notifications are working correctly.</p>",
         channels=["email", "push"],
         tags=["white_check_mark"],
     )
