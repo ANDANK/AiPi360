@@ -1,6 +1,6 @@
 """FISD calendar service — read/write from GSheet, baseline known dates."""
 import pandas as pd
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 from backend.gsheet import read_sheet, overwrite_sheet, append_row
 
 TAB = "fisd_calendar"
@@ -116,9 +116,9 @@ def upcoming_events(days: int = 30, school_year: str = "2026-2027") -> pd.DataFr
         return df
     df["date"] = pd.to_datetime(df["date"], errors="coerce").dt.date
     today  = date.today()
-    cutoff = today + pd.Timedelta(days=days)
+    cutoff = today + timedelta(days=days)
     return df[
-        (df["date"] >= today) & (df["date"] <= cutoff.date())
+        (df["date"] >= today) & (df["date"] <= cutoff)
     ].sort_values("date")
 
 

@@ -73,5 +73,6 @@ def due_soon(days: int = 30, df: pd.DataFrame | None = None) -> pd.DataFrame:
         return df
     df = df.copy()
     df["due_date"] = pd.to_datetime(df["due_date"], errors="coerce").dt.date
-    cutoff = date.today() + pd.Timedelta(days=days)
-    return df[df["due_date"] <= cutoff.date() if hasattr(cutoff, "date") else cutoff]
+    from datetime import timedelta
+    cutoff = date.today() + timedelta(days=days)
+    return df[df["due_date"] <= cutoff]

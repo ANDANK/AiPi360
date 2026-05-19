@@ -63,5 +63,6 @@ def fees_due_soon(days: int = 30, df: pd.DataFrame | None = None) -> pd.DataFram
         return df
     df = df.copy()
     df["fee_due_date"] = pd.to_datetime(df["fee_due_date"], errors="coerce").dt.date
-    cutoff = date.today() + pd.Timedelta(days=days)
-    return df[df["fee_due_date"] <= cutoff.date() if hasattr(cutoff, "date") else cutoff]
+    from datetime import timedelta
+    cutoff = date.today() + timedelta(days=days)
+    return df[df["fee_due_date"] <= cutoff]
