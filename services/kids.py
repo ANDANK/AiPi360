@@ -10,12 +10,32 @@ CHILDREN       = ["Son", "Daughter"]
 DAYS_OF_WEEK   = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
 
 # Class meeting schedule (how often the class meets)
-FREQUENCIES    = ["Weekly", "Bi-Weekly", "Monthly", "One-Time"]
+FREQUENCIES    = ["Weekly", "Bi-Weekly (Alt. Weeks)", "Monthly", "One-Time"]
 
 # Fee billing cycle (how often you pay / cost unit)
-FEE_FREQUENCIES = ["Per Session", "Monthly", "Quarterly", "Semi-Annual", "Annual", "Free"]
+FEE_FREQUENCIES = ["Per Session", "Bi-Weekly (Per 2 Wks)", "Monthly", "Quarterly", "Semi-Annual", "Annual", "Free"]
 
 _DAY_NUM = {d: i for i, d in enumerate(DAYS_OF_WEEK)}
+
+
+def best_match_index(value: str, options: list[str]) -> int:
+    """Return the index of the best matching option (case-insensitive prefix/substring).
+
+    Falls back to 0 if nothing matches — prevents crash when stored values
+    predate a rename (e.g. old "Bi-Weekly" vs new "Bi-Weekly (Alt. Weeks)").
+    """
+    v = str(value).lower().strip()
+    if not v:
+        return 0
+    # Exact match first
+    for i, o in enumerate(options):
+        if v == o.lower():
+            return i
+    # Prefix / substring match
+    for i, o in enumerate(options):
+        if v.startswith(o.lower()[:6]) or o.lower().startswith(v[:6]):
+            return i
+    return 0
 
 
 def list_classes(child: str | None = None, active_only: bool = True) -> pd.DataFrame:
@@ -77,12 +97,13 @@ def monthly_cost(child: str | None = None) -> float:
     if "paused" in df.columns:
         df = df[df["paused"].astype(str).str.upper() != "TRUE"]
     fee_mult = {
-        "per session": 4.33,
-        "monthly":     1.0,
-        "quarterly":   1 / 3,
-        "semi-annual": 1 / 6,
-        "annual":      1 / 12,
-        "free":        0.0,
+        "per session":          4.33,   # ~4.33 weeks/month
+        "bi-weekly (per 2 wks)": 2.17,  # ~2.17 fortnights/month
+        "monthly":              1.0,
+        "quarterly":            1 / 3,
+        "semi-annual":          1 / 6,
+        "annual":               1 / 12,
+        "free":                 0.0,
     }
     total = 0.0
     for _, r in df.iterrows():
@@ -128,14 +149,14 @@ def upcoming_sessions(child: str | None = None, days_ahead: int = 14,
             cls_start = today
 
         check = today
-        week_0 = (cls_start - date(cls_start.year, 1, 1)).days // 7  # ISO week anchor
 
         while check <= cutoff:
             day_name = check.strftime("%A")
             if day_name in class_days:
-                if freq == "bi-weekly":
-                    week_n = (check - date(check.year, 1, 1)).days // 7
-                    if (week_n - week_0) % 2 != 0:
+                if "bi-weekly" in freq.lower():
+                    # Count complete weeks elapsed since the first class day on or after start_date
+                    weeks_since_start = (check - cls_start).days // 7
+                    if weeks_since_start % 2 != 0:
                         check += timedelta(days=1)
                         continue
                 sessions.append({

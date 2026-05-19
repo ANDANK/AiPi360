@@ -15,6 +15,7 @@ from components.metric_card import section_header, coming_soon
 from components.reminder_banner import render_section_reminders
 from services.kids import (list_classes, add_class, update_class, delete_class,
                            toggle_pause, monthly_cost, upcoming_sessions,
+                           best_match_index,
                            FREQUENCIES, FEE_FREQUENCIES, DAYS_OF_WEEK)
 from backend.gsheet import read_sheet
 
@@ -813,10 +814,10 @@ Total: ~6 presentations per school year.
                                                           min_value=0.0, step=5.0)
                                 cur_ff  = str(cls.get("fee_frequency",""))
                                 e_feef  = st.selectbox("Fee Frequency", FEE_FREQUENCIES,
-                                                       index=FEE_FREQUENCIES.index(cur_ff) if cur_ff in FEE_FREQUENCIES else 0)
+                                                       index=best_match_index(cur_ff, FEE_FREQUENCIES))
                                 cur_fr  = str(cls.get("frequency",""))
                                 e_freq  = st.selectbox("Class Meets", FREQUENCIES,
-                                                       index=FREQUENCIES.index(cur_fr) if cur_fr in FREQUENCIES else 0)
+                                                       index=best_match_index(cur_fr, FREQUENCIES))
                             cur_days   = [d.strip() for d in str(cls.get("days","")).split(",") if d.strip() in DAYS_OF_WEEK]
                             e_days     = st.multiselect("Class Days", DAYS_OF_WEEK, default=cur_days,
                                                         key=f"son_edays_{cls['id']}")
@@ -1070,10 +1071,10 @@ with child_tab2:
                                                           min_value=0.0, step=5.0)
                                 cur_ff  = str(cls.get("fee_frequency",""))
                                 e_feef  = st.selectbox("Fee Frequency", FEE_FREQUENCIES,
-                                                       index=FEE_FREQUENCIES.index(cur_ff) if cur_ff in FEE_FREQUENCIES else 0)
+                                                       index=best_match_index(cur_ff, FEE_FREQUENCIES))
                                 cur_fr  = str(cls.get("frequency",""))
                                 e_freq  = st.selectbox("Class Meets", FREQUENCIES,
-                                                       index=FREQUENCIES.index(cur_fr) if cur_fr in FREQUENCIES else 0)
+                                                       index=best_match_index(cur_fr, FREQUENCIES))
                             cur_days   = [d.strip() for d in str(cls.get("days","")).split(",") if d.strip() in DAYS_OF_WEEK]
                             e_days     = st.multiselect("Class Days", DAYS_OF_WEEK, default=cur_days,
                                                         key=f"dau_edays_{cls['id']}")
