@@ -57,7 +57,7 @@ child_tab1, child_tab2 = st.tabs(["👦 Son", "👧 Daughter"])
 with child_tab1:
     st.markdown('<div class="grade-badge">Currently Grade 6 · 2026-2027</div>', unsafe_allow_html=True)
 
-    g6, g7, g8, classes_tab = st.tabs(["📘 Grade 6", "📗 Grade 7", "📙 Grade 8", "📋 Classes & Fees"])
+    g6, g7, g8, tamil_tab, classes_tab = st.tabs(["📘 Grade 6", "📗 Grade 7", "📙 Grade 8", "🕉️ Tamil School", "📋 Classes & Fees"])
 
     # ── Grade 6 ───────────────────────────────────────────────────────────────
     with g6:
@@ -191,6 +191,266 @@ with child_tab1:
 
 </div>
 """, unsafe_allow_html=True)
+
+    # ── Tamil School ──────────────────────────────────────────────────────────
+    with tamil_tab:
+        st.markdown("### 🕉️ Plano Tamil School — Nilai 6")
+
+        # ── School info bar ───────────────────────────────────────────────────
+        st.markdown("""
+<div style="background:#fdf4e7;border:1px solid #f59e0b;border-radius:12px;padding:16px 20px;margin-bottom:16px;display:flex;gap:32px;flex-wrap:wrap;">
+  <div><span style="font-size:12px;color:#92400e;font-weight:600;">📍 LOCATION</span><br>
+    <span style="font-size:13px;">Genstar Montessori<br>10205 Custer Rd, Plano TX 75025</span></div>
+  <div><span style="font-size:12px;color:#92400e;font-weight:600;">📅 SCHEDULE</span><br>
+    <span style="font-size:13px;">Sundays · 2 hours/class<br>August – May</span></div>
+  <div><span style="font-size:12px;color:#92400e;font-weight:600;">🎓 LEVEL</span><br>
+    <span style="font-size:13px;">Nilai 6 · Age 11+<br>Year 2026-2027</span></div>
+  <div><span style="font-size:12px;color:#92400e;font-weight:600;">📧 CONTACT</span><br>
+    <span style="font-size:13px;">sasthatamilfoundation@gmail.com</span></div>
+  <div><span style="font-size:12px;color:#92400e;font-weight:600;">🌐 WEBSITE</span><br>
+    <a href="https://stfnonprofit.org/Plano-Tamil-School/" target="_blank" style="font-size:13px;">stfnonprofit.org</a></div>
+</div>""", unsafe_allow_html=True)
+
+        ts1, ts2, ts3, ts4, ts5 = st.tabs(["📚 Nilai 6 Curriculum", "📅 Calendar", "🏆 Competitions", "🔔 Reminders", "📋 Resources"])
+
+        # ── Nilai 6 Curriculum ────────────────────────────────────────────────
+        with ts1:
+            st.markdown("#### 📚 Nilai 6 Curriculum — What to Learn This Year")
+            c1, c2 = st.columns(2)
+            with c1:
+                st.markdown("""
+<div style="background:#fff;border:1px solid #e2e8f0;border-radius:12px;padding:16px;margin-bottom:12px;">
+<div style="font-weight:700;color:#0f172a;margin-bottom:8px;">✍️ Writing</div>
+<ul style="margin:0;padding-left:18px;font-size:13px;color:#374151;">
+<li>Syntax — letter writing</li>
+<li>Short essays</li>
+<li>Story composition</li>
+<li>Compound words</li>
+</ul>
+</div>
+
+<div style="background:#fff;border:1px solid #e2e8f0;border-radius:12px;padding:16px;margin-bottom:12px;">
+<div style="font-weight:700;color:#0f172a;margin-bottom:8px;">🗣️ Oral Skills</div>
+<ul style="margin:0;padding-left:18px;font-size:13px;color:#374151;">
+<li>8 lessons / stories</li>
+<li>4 songs</li>
+<li>6 pieces — Sangam literature & poetry</li>
+<li>10 Thirukkural verses</li>
+<li>100 vocabulary words</li>
+</ul>
+</div>""", unsafe_allow_html=True)
+
+            with c2:
+                st.markdown("""
+<div style="background:#fff;border:1px solid #e2e8f0;border-radius:12px;padding:16px;margin-bottom:12px;">
+<div style="font-weight:700;color:#0f172a;margin-bottom:8px;">📖 Grammar Topics</div>
+<ul style="margin:0;padding-left:18px;font-size:13px;color:#374151;">
+<li>வினைமுற்று — Finite Verb</li>
+<li>பெயரெச்சம் — Adjective Participle</li>
+<li>Adjectives & Adverbs (review)</li>
+<li>Declension (review)</li>
+<li>Continuous tenses (review)</li>
+</ul>
+</div>
+
+<div style="background:#fff;border:1px solid #e2e8f0;border-radius:12px;padding:16px;margin-bottom:12px;">
+<div style="font-weight:700;color:#0f172a;margin-bottom:8px;">📗 Reading & Speaking</div>
+<ul style="margin:0;padding-left:18px;font-size:13px;color:#374151;">
+<li>Daily 10+ min reading from class library</li>
+<li>Logged reading minutes</li>
+<li>2 reading tests per year (graded)</li>
+<li>Public speaking — every 6 weeks</li>
+<li>One-on-one teacher review before presentations</li>
+</ul>
+</div>""", unsafe_allow_html=True)
+
+            st.markdown("""
+<div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:12px;padding:14px 18px;margin-top:4px;">
+<b>📋 Unit Structure:</b> The year is divided into <b>6 units</b>.
+Each unit ends with a student presentation in week 6.
+Total: ~6 presentations per school year.
+</div>""", unsafe_allow_html=True)
+
+        # ── Calendar ──────────────────────────────────────────────────────────
+        with ts2:
+            st.markdown("#### 📅 Tamil School Calendar 2026-2027")
+
+            col_ref, col_add = st.columns([3, 2])
+
+            with col_ref:
+                st.info("📎 Upload your 2026-2027 calendar PDF to populate dates automatically.")
+                uploaded_cal = st.file_uploader("Upload Tamil School Calendar PDF", type=["pdf"], key="tamil_cal_upload")
+                if uploaded_cal:
+                    st.success("Calendar uploaded. Claude will extract dates — feature coming soon.")
+
+            with col_add:
+                st.markdown("##### ➕ Add Calendar Event")
+                with st.form("tamil_cal_form"):
+                    ev_title = st.text_input("Event")
+                    ev_date  = st.date_input("Date", value=date.today())
+                    ev_type  = st.selectbox("Type", ["Class Day","Holiday","No Class","Presentation","Competition","Other"])
+                    if st.form_submit_button("Add", type="primary"):
+                        from services.reminders import add as add_rem
+                        add_rem("tamil", ev_title, ev_type, ev_date, remind_days=1, frequency="once", channels="push")
+                        st.success(f"✅ Added: {ev_title}")
+                        st.rerun()
+
+            st.markdown("---")
+            st.markdown("##### 📆 Saved Tamil School Events")
+            try:
+                rem_df_t = read_sheet("reminders")
+                if not rem_df_t.empty:
+                    tamil_evs = rem_df_t[rem_df_t["section"].str.lower() == "tamil"].copy()
+                    if tamil_evs.empty:
+                        st.info("No events added yet. Use the form above or upload the calendar PDF.")
+                    else:
+                        tamil_evs["due_date"] = pd.to_datetime(tamil_evs["due_date"], errors="coerce").dt.date
+                        tamil_evs = tamil_evs.sort_values("due_date")
+                        st.dataframe(
+                            tamil_evs[["title","message","due_date","status"]].rename(
+                                columns={"title":"Event","message":"Type","due_date":"Date","status":"Status"}
+                            ),
+                            use_container_width=True, hide_index=True,
+                        )
+                else:
+                    st.info("No events yet.")
+            except Exception:
+                st.info("Connect Google Sheets to see events.")
+
+            st.markdown("---")
+            st.markdown("##### 📌 Known Key Dates (2025-2026 reference)")
+            st.markdown("""
+| Date | Event |
+|------|-------|
+| August | 🏫 School year begins |
+| Every Sunday | 📚 Regular class (2 hrs) — Genstar Montessori |
+| Every 6th week | 🎤 Student presentation day |
+| February 7, 2026 | 🏆 19th Thirukkural Competition |
+| April | 📝 Registration opens for next year |
+| May | 🎓 School year ends / Annual Day |
+
+*Upload the 2026-2027 PDF above to get exact dates for this year.*
+""")
+
+        # ── Competitions ──────────────────────────────────────────────────────
+        with ts3:
+            st.markdown("#### 🏆 Competitions & Events")
+            st.markdown("""
+<div style="background:#fff;border:1px solid #e2e8f0;border-radius:14px;padding:20px;margin-bottom:12px;">
+<div style="font-size:16px;font-weight:700;margin-bottom:8px;">🏆 Thirukkural Competition</div>
+<div style="font-size:13px;color:#374151;">
+<b>What:</b> Recite Thirukkural verses — cash prizes awarded<br>
+<b>Goal:</b> Improve literary and prose skills through community involvement<br>
+<b>Next:</b> February 7, 2026 (19th Annual)<br>
+<b>Prep:</b> 10 Thirukkural verses required in Nilai 6 curriculum
+</div>
+</div>
+
+<div style="background:#fff;border:1px solid #e2e8f0;border-radius:14px;padding:20px;margin-bottom:12px;">
+<div style="font-size:16px;font-weight:700;margin-bottom:8px;">📜 Avvai Amudham Competition</div>
+<div style="font-size:13px;color:#374151;">
+<b>What:</b> Essay and speech competition<br>
+<b>Goal:</b> Develop Tamil literary skills<br>
+<b>Prep:</b> Practice essay writing and story composition from curriculum
+</div>
+</div>
+
+<div style="background:#fff;border:1px solid #e2e8f0;border-radius:14px;padding:20px;margin-bottom:12px;">
+<div style="font-size:16px;font-weight:700;margin-bottom:8px;">🎭 Annual Day Performance</div>
+<div style="font-size:13px;color:#374151;">
+<b>What:</b> Cultural performances — Iyal (literature), Isai (music), Nadagam (drama)<br>
+<b>Goal:</b> Showcase Tamil arts and culture<br>
+<b>When:</b> Typically May (end of school year)
+</div>
+</div>
+
+<div style="background:#fff;border:1px solid #e2e8f0;border-radius:14px;padding:20px;">
+<div style="font-size:16px;font-weight:700;margin-bottom:8px;">🎤 Public Speaking (Every 6 Weeks)</div>
+<div style="font-size:13px;color:#374151;">
+<b>What:</b> Student presentations to class — speeches or performances<br>
+<b>Prep:</b> One-on-one teacher review before each presentation<br>
+<b>Frequency:</b> ~6 times per school year
+</div>
+</div>""", unsafe_allow_html=True)
+
+            st.markdown("---")
+            st.markdown("##### 🎯 Competition Prep Tracker")
+            comp_items = [
+                ("Thirukkural verses memorized", "10 required", "🏆"),
+                ("Sangam literature pieces", "6 required", "📜"),
+                ("Songs learned", "4 required", "🎵"),
+                ("Vocabulary words", "100 required", "📝"),
+                ("Stories / lessons", "8 required", "📖"),
+            ]
+            for item, target, icon in comp_items:
+                c1, c2, c3 = st.columns([3,1,1])
+                with c1: st.markdown(f"{icon} {item}")
+                with c2: st.caption(target)
+                with c3: st.progress(0.0)
+
+        # ── Reminders ─────────────────────────────────────────────────────────
+        with ts4:
+            st.markdown("#### 🔔 Tamil School Reminders")
+            try:
+                rem_df_ts = read_sheet("reminders")
+                if not rem_df_ts.empty:
+                    ts_rems = rem_df_ts[rem_df_ts["section"].str.lower() == "tamil"]
+                    if ts_rems.empty:
+                        st.info("No Tamil school reminders yet.")
+                    else:
+                        from components.reminder_banner import render_reminder_banner
+                        render_reminder_banner(ts_rems, max_show=10)
+                else:
+                    st.info("No reminders yet.")
+            except Exception:
+                st.info("Connect Google Sheets to see reminders.")
+
+            st.markdown("---")
+            st.markdown("##### ➕ Add Tamil School Reminder")
+            with st.form("tamil_rem_form"):
+                r1, r2 = st.columns(2)
+                with r1:
+                    rt = st.text_input("Reminder Title (e.g. Thirukkural practice)")
+                    rm = st.text_area("Details", height=60)
+                with r2:
+                    rd   = st.date_input("Due Date", value=date.today())
+                    rday = st.selectbox("Remind me (days before)", [0,1,3,7], index=1)
+                    rch  = st.selectbox("Notify via", ["push","email","push,email"])
+                if st.form_submit_button("Add Reminder", type="primary"):
+                    if rt:
+                        from services.reminders import add as add_rem
+                        add_rem("tamil", rt, rm, rd, rday, "once", rch)
+                        st.success(f"✅ Added: {rt}")
+                        st.rerun()
+
+        # ── Resources ─────────────────────────────────────────────────────────
+        with ts5:
+            st.markdown("#### 📋 Resources & Links")
+            st.markdown("""
+| Resource | Link |
+|----------|------|
+| 🌐 School Website | [stfnonprofit.org](https://stfnonprofit.org/Plano-Tamil-School/) |
+| 👨‍🎓 Student Portal | [Students page](https://stfnonprofit.org/students/) |
+| 📚 Grade Levels | [Grade descriptions](https://stfnonprofit.org/students/grade-levels/) |
+| 📅 Calendar 2024-25 | [Download PDF](https://stfnonprofit.org/wp-content/uploads/2024/04/Calendar-2024-2025.pdf) |
+| 📧 Contact | sasthatamilfoundation@gmail.com |
+
+**Weekly newsletter:** Vaaram Oru Thuli (subscribe via school website)
+
+**Tamil Library:** ~2,000 books available at school — borrow for daily 10-min reading practice
+""")
+            st.markdown("---")
+            st.markdown("##### 📖 Daily Reading Log")
+            st.info("Log 10+ minutes of Tamil reading daily — required for Nilai 6 reading grade.")
+            with st.form("reading_log"):
+                rl1, rl2, rl3 = st.columns(3)
+                with rl1: rl_date = st.date_input("Date", value=date.today())
+                with rl2: rl_mins = st.number_input("Minutes read", min_value=1, max_value=120, value=10)
+                with rl3: rl_book = st.text_input("Book / material")
+                if st.form_submit_button("Log Reading", type="primary"):
+                    from backend.gsheet import append_row
+                    append_row("tamil_reading_log", [rl_date.isoformat(), "Son", rl_mins, rl_book])
+                    st.success(f"✅ Logged {rl_mins} minutes")
 
     # ── Classes & Fees ────────────────────────────────────────────────────────
     with classes_tab:

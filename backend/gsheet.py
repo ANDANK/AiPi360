@@ -19,6 +19,7 @@ TAB_SCHEMAS: dict[str, list[str]] = {
     "cc_cards":          ["id","name","bank","last4","annual_fee","fee_due_date","credit_limit","perks","active"],
     "classes":           ["id","child","name","provider","cost","frequency","start_date","end_date","active"],
     "expenses_log":      ["date","section","category","description","amount"],
+    "tamil_reading_log": ["date","child","minutes","material"],
 }
 
 
