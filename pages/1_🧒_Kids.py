@@ -441,39 +441,84 @@ with child_tab1:
             # ── Mini Tests ────────────────────────────────────────────────────
             with _sp_tabs[3]:
                 import random as _random
-                from services.staar_prep import MINI_TEST_EXTRA
-                st.markdown("##### ✏️ Strand-Level Mini Tests — Grade 6 (STAAR-Style MCQ)")
-                st.caption("5 questions randomly drawn from the pool each session · click 🔀 New Set for a fresh draw")
+                import plotly.graph_objects as _go
+                from services.staar_prep import (get_question_pool as _gqp,
+                                                  log_staar_result, get_staar_results)
+
                 g6_mt_keys = [k for k in MINI_TESTS if k.startswith("Grade 6")]
-                mt_sel = st.selectbox("Choose a strand test", g6_mt_keys, key="g6_mt_sel")
 
-                # Build combined pool (base + extra)
-                pool = MINI_TESTS[mt_sel] + MINI_TEST_EXTRA.get(mt_sel, [])
-                SAMPLE_N = min(5, len(pool))
+                # ── Strand selector + Refresh button side-by-side ─────────────
+                hdr_c1, hdr_c2 = st.columns([4, 1])
+                with hdr_c1:
+                    mt_sel = st.selectbox("Choose a strand test", g6_mt_keys, key="g6_mt_sel",
+                                          label_visibility="collapsed")
+                with hdr_c2:
+                    refresh_clicked = st.button("🔄 New Questions", key="g6_mt_newshuffle",
+                                                use_container_width=True)
 
-                def _fresh_draw(key, pool):
-                    idxs = _random.sample(range(len(pool)), SAMPLE_N)
-                    st.session_state[f"{key}_idxs"]      = idxs
-                    st.session_state[f"{key}_answers"]   = [None] * SAMPLE_N
-                    st.session_state[f"{key}_submitted"]  = False
+                pool     = _gqp(mt_sel)
+                SAMPLE_N = min(20, len(pool))
+
+                def _fresh_draw(key, p, n):
+                    idxs = _random.sample(range(len(p)), n)
+                    st.session_state[f"{key}_idxs"]     = idxs
+                    st.session_state[f"{key}_answers"]  = [None] * n
+                    st.session_state[f"{key}_submitted"] = False
 
                 state_key = "g6_mt"
                 if st.session_state.get(f"{state_key}_last_sel") != mt_sel:
-                    _fresh_draw(state_key, pool)
+                    _fresh_draw(state_key, pool, SAMPLE_N)
                     st.session_state[f"{state_key}_last_sel"] = mt_sel
-
-                if st.button("🔀 New Set", key="g6_mt_newshuffle"):
-                    _fresh_draw(state_key, pool)
+                if refresh_clicked:
+                    _fresh_draw(state_key, pool, SAMPLE_N)
                     st.rerun()
 
-                q_idxs    = st.session_state.get(f"{state_key}_idxs", list(range(SAMPLE_N)))
-                questions  = [pool[i] for i in q_idxs]
-                answers    = st.session_state.get(f"{state_key}_answers", [None] * SAMPLE_N)
-                submitted  = st.session_state.get(f"{state_key}_submitted", False)
+                # ── Performance graph ──────────────────────────────────────────
+                try:
+                    hist_df = get_staar_results(child="Son", strand=mt_sel)
+                    if not hist_df.empty:
+                        hist_df["date"] = pd.to_datetime(hist_df["date"], errors="coerce")
+                        hist_df = hist_df.sort_values("date").tail(15)
+                        hist_df["pct"] = pd.to_numeric(hist_df["pct"], errors="coerce").fillna(0)
+                        bar_colors = ["#22c55e" if p >= 80 else "#f59e0b" if p >= 60 else "#ef4444"
+                                      for p in hist_df["pct"]]
+                        pfig = _go.Figure(_go.Bar(
+                            x=hist_df["date"].dt.strftime("%b %d"),
+                            y=hist_df["pct"],
+                            marker_color=bar_colors,
+                            text=[f"{p:.0f}%" for p in hist_df["pct"]],
+                            textposition="outside",
+                        ))
+                        pfig.add_hline(y=80, line_dash="dot", line_color="#22c55e",
+                                       annotation_text="80%", annotation_position="right")
+                        pfig.update_layout(
+                            height=160, margin=dict(l=0, r=40, t=28, b=0),
+                            paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
+                            yaxis=dict(range=[0, 110], showgrid=True, gridcolor="#e2e8f0",
+                                       ticksuffix="%", tickfont=dict(size=10)),
+                            xaxis=dict(showgrid=False, tickfont=dict(size=10)),
+                            title=dict(text=f"Score History — {mt_sel.split('—')[-1].strip()}",
+                                       font=dict(size=11, color="#64748b"), x=0),
+                            showlegend=False,
+                        )
+                        st.plotly_chart(pfig, use_container_width=True,
+                                        config={"displayModeBar": False})
+                    else:
+                        st.caption("📊 No score history yet — complete a test to see your progress here.")
+                except Exception:
+                    pass
+
+                st.markdown(f"##### ✏️ Strand-Level Mini Tests — Grade 6 (STAAR-Style MCQ)")
+                st.caption(f"{SAMPLE_N} questions drawn from a pool of {len(pool)} · "
+                           f"click **🔄 New Questions** for a different set")
+
+                q_idxs   = st.session_state.get(f"{state_key}_idxs", list(range(SAMPLE_N)))
+                questions = [pool[i] for i in q_idxs]
+                answers   = st.session_state.get(f"{state_key}_answers", [None] * SAMPLE_N)
+                submitted = st.session_state.get(f"{state_key}_submitted", False)
 
                 for i, qdata in enumerate(questions):
                     st.markdown(f"**Q{i+1}. {qdata['q']}**")
-                    # index=None → no pre-selection until user picks
                     sel = st.radio(f"q6_{i}", qdata["opts"], index=None,
                                    key=f"g6_mt_{mt_sel}_{q_idxs[i]}_{i}",
                                    label_visibility="collapsed")
@@ -483,8 +528,9 @@ with child_tab1:
                         correct = (answers[i] == qdata["ans"])
                         bg_c = "#dcfce7" if correct else "#fee2e2"
                         st.markdown(
-                            f"""<div style="background:{bg_c};border-radius:8px;padding:8px 12px;margin-bottom:4px;font-size:13px;">
-                              {"✅ Correct!" if correct else f'❌ Incorrect. Correct: <em>{qdata["opts"][qdata["ans"]]}</em>'}
+                            f"""<div style="background:{bg_c};border-radius:8px;padding:8px 12px;
+                                margin-bottom:4px;font-size:13px;">
+                              {"✅ Correct!" if correct else f'❌ Incorrect. Correct answer: <em>{qdata["opts"][qdata["ans"]]}</em>'}
                               <br><span style="color:#475569;">{qdata['exp']}</span>
                             </div>""", unsafe_allow_html=True)
                     st.markdown("---")
@@ -492,8 +538,8 @@ with child_tab1:
 
                 n_answered = sum(1 for a in answers if a is not None)
                 if not submitted:
-                    if n_answered < SAMPLE_N:
-                        st.caption(f"Answer all {SAMPLE_N} questions to submit ({n_answered}/{SAMPLE_N} answered)")
+                    st.progress(n_answered / SAMPLE_N,
+                                text=f"{n_answered} / {SAMPLE_N} answered")
                     if st.button("Submit Answers", key="g6_mt_submit", type="primary",
                                  disabled=(n_answered < SAMPLE_N)):
                         st.session_state[f"{state_key}_submitted"] = True
@@ -509,15 +555,20 @@ with child_tab1:
                             text-align:center;font-size:16px;font-weight:700;">
                           Score: {score}/{SAMPLE_N} — {pct}% &nbsp; {msg}
                         </div>""", unsafe_allow_html=True)
+                    # Save result to tracking sheet
+                    try:
+                        log_staar_result("Son", 6, mt_sel, score, SAMPLE_N)
+                    except Exception:
+                        pass
                     c_r1, c_r2 = st.columns(2)
                     with c_r1:
-                        if st.button("Try Same Set Again", key="g6_mt_retry"):
+                        if st.button("🔁 Try Same Set Again", key="g6_mt_retry"):
                             st.session_state[f"{state_key}_answers"]  = [None] * SAMPLE_N
                             st.session_state[f"{state_key}_submitted"] = False
                             st.rerun()
                     with c_r2:
-                        if st.button("🔀 New Set", key="g6_mt_retry_new"):
-                            _fresh_draw(state_key, pool)
+                        if st.button("🔄 New Questions", key="g6_mt_retry_new"):
+                            _fresh_draw(state_key, pool, SAMPLE_N)
                             st.rerun()
 
             # ── Official Tests ────────────────────────────────────────────────
