@@ -41,7 +41,7 @@ with st.sidebar:
 
 section_header("📅", "Calendar & Reminders", "All reminders, events & important dates in one place")
 
-tab1, tab2, tab3 = st.tabs(["📋 All Reminders", "➕ Add Reminder", "📆 7-Day View"])
+tab1, tab2, tab3, tab4 = st.tabs(["📋 All Reminders", "➕ Add Reminder", "📆 7-Day View", "📚 Class Schedule"])
 
 # ── All Reminders ─────────────────────────────────────────────────────────────
 with tab1:
@@ -180,3 +180,50 @@ with tab3:
                     )
     except Exception as e:
         st.error(f"Could not load reminders: {e}")
+
+# ── Class Schedule ─────────────────────────────────────────────────────────────
+with tab4:
+    st.markdown("#### 📚 Upcoming Class Schedule")
+    try:
+        from services.kids import upcoming_sessions, CHILDREN
+        days_ahead = st.slider("Show next N days", min_value=7, max_value=60, value=21, step=7)
+
+        child_filter = st.radio("Child", ["All"] + CHILDREN, horizontal=True, key="cal_child_filter")
+        child_arg = None if child_filter == "All" else child_filter
+
+        sessions = upcoming_sessions(child=child_arg, days_ahead=days_ahead)
+
+        if not sessions:
+            st.info("No class sessions found. Add classes with day/time in the Kids section.")
+        else:
+            today = date.today()
+            cur_date = None
+            CHILD_COLOR = {"Son": ("#eff6ff", "#2563eb"), "Daughter": ("#fdf4ff", "#9333ea")}
+
+            for s in sessions:
+                if s["date"] != cur_date:
+                    cur_date = s["date"]
+                    delta = (cur_date - today).days
+                    dlabel = "Today" if delta == 0 else (
+                        "Tomorrow" if delta == 1 else cur_date.strftime("%A, %b %d"))
+                    st.markdown(f"**{dlabel}**")
+
+                bg, color = CHILD_COLOR.get(s["child"], ("#f8fafc", "#64748b"))
+                time_str = f"🕐 {s['time_start']}–{s['time_end']}" if s["time_start"] else ""
+                loc_str  = f"📍 {s['location']}"               if s["location"]  else ""
+                child_badge = f'<span style="font-size:11px;background:{color};color:#fff;border-radius:10px;padding:2px 8px;margin-right:6px;">{s["child"]}</span>'
+
+                st.markdown(
+                    f"""<div style="margin-left:16px;padding:9px 14px;background:{bg};
+                        border-left:3px solid {color};border-radius:8px;margin-bottom:5px;
+                        display:flex;gap:14px;align-items:center;flex-wrap:wrap;">
+                      {child_badge}
+                      <span style="font-size:13px;font-weight:600;color:#0f172a;">{s['class']}</span>
+                      <span style="font-size:12px;color:#64748b;">{s['provider']}</span>
+                      <span style="font-size:12px;color:{color};">{time_str}</span>
+                      <span style="font-size:12px;color:#64748b;margin-left:auto;">{loc_str}</span>
+                    </div>""",
+                    unsafe_allow_html=True,
+                )
+    except Exception as e:
+        st.error(f"Could not load class schedule: {e}")

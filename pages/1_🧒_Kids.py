@@ -13,7 +13,8 @@ require_auth()
 
 from components.metric_card import section_header, coming_soon
 from components.reminder_banner import render_section_reminders
-from services.kids import list_classes, add_class, delete_class, monthly_cost, FREQUENCIES
+from services.kids import (list_classes, add_class, delete_class, monthly_cost,
+                           upcoming_sessions, FREQUENCIES, DAYS_OF_WEEK)
 from backend.gsheet import read_sheet
 
 # ── CSS ───────────────────────────────────────────────────────────────────────
@@ -703,32 +704,114 @@ Total: ~6 presentations per school year.
         cls_df = list_classes(child="Son")
         monthly = monthly_cost("Son")
 
-        m1, m2 = st.columns(2)
+        m1, m2, m3 = st.columns(3)
         m1.metric("Active Classes", len(cls_df) if not cls_df.empty else 0)
         m2.metric("Est. Monthly Cost", f"${monthly:,.0f}")
+        m3.metric("Est. Annual Cost", f"${monthly*12:,.0f}")
 
-        if not cls_df.empty:
-            st.dataframe(
-                cls_df[["name","provider","cost","frequency","start_date"]],
-                use_container_width=True, hide_index=True,
-            )
-        else:
-            st.info("No classes yet. Add one below.")
+        cl1, cl2, cl3 = st.tabs(["📋 Classes List", "📅 Upcoming Schedule", "➕ Add Class"])
 
-        with st.expander("➕ Add a Class / Activity"):
+        with cl1:
+            if not cls_df.empty:
+                disp_cols = [c for c in ["name","provider","days","time_start","time_end","location","cost","frequency","start_date"]
+                             if c in cls_df.columns]
+                st.dataframe(cls_df[disp_cols], use_container_width=True, hide_index=True)
+                st.markdown("---")
+                st.markdown("##### 🗑️ Remove a Class")
+                del_id = st.selectbox("Select class to deactivate",
+                                      ["— select —"] + cls_df["id"].tolist(),
+                                      format_func=lambda x: cls_df.loc[cls_df["id"]==x,"name"].iloc[0] if x != "— select —" else x,
+                                      key="del_son_class")
+                if del_id != "— select —":
+                    if st.button("Deactivate class", key="deact_son"):
+                        delete_class(del_id)
+                        st.success("Deactivated.")
+                        st.rerun()
+            else:
+                st.info("No classes yet. Use the ➕ Add Class tab to get started.")
+
+        with cl2:
+            sessions = upcoming_sessions(child="Son", days_ahead=21)
+            if not sessions:
+                if cls_df.empty:
+                    st.info("No classes added yet.")
+                else:
+                    st.info("No classes have day/time set. Add schedule details when creating a class.")
+            else:
+                st.markdown("##### 📅 Next 21 Days — Son's Classes")
+                today_d = date.today()
+                cur_date = None
+                for s in sessions:
+                    if s["date"] != cur_date:
+                        cur_date = s["date"]
+                        delta = (cur_date - today_d).days
+                        dlabel = "Today" if delta == 0 else ("Tomorrow" if delta == 1 else
+                                 cur_date.strftime("%A, %b %d"))
+                        st.markdown(f"**{dlabel}**")
+                    time_str = f"{s['time_start']}–{s['time_end']}" if s['time_start'] else ""
+                    loc_str  = f" · 📍 {s['location']}" if s['location'] else ""
+                    st.markdown(
+                        f"""<div style="margin-left:16px;padding:9px 14px;background:#eff6ff;
+                            border-left:3px solid #2563eb;border-radius:8px;margin-bottom:5px;
+                            display:flex;gap:14px;align-items:center;flex-wrap:wrap;">
+                          <span style="font-size:13px;font-weight:600;color:#1e40af;">{s['class']}</span>
+                          <span style="font-size:12px;color:#3b82f6;">{s['provider']}</span>
+                          {'<span style="font-size:12px;color:#1d4ed8;">🕐 ' + time_str + '</span>' if time_str else ''}
+                          <span style="font-size:12px;color:#64748b;margin-left:auto;">{loc_str}</span>
+                        </div>""",
+                        unsafe_allow_html=True,
+                    )
+
+        with cl3:
             with st.form("add_class_son"):
+                st.markdown("##### Class Details")
                 c1, c2 = st.columns(2)
                 with c1:
-                    cname = st.text_input("Class Name (e.g. Chess, Swim, iTalk)")
-                    cprov = st.text_input("Provider / Instructor")
+                    cname  = st.text_input("Class Name *", placeholder="e.g. Chess, Swim, iTalk")
+                    cprov  = st.text_input("Provider / Instructor")
+                    cloc   = st.text_input("Location", placeholder="e.g. Rec Center, Online")
                 with c2:
-                    ccost = st.number_input("Cost ($)", min_value=0.0, step=5.0)
-                    cfreq = st.selectbox("Frequency", FREQUENCIES)
-                cstart = st.date_input("Start Date", value=date.today())
-                if st.form_submit_button("Add Class", type="primary"):
-                    if cname:
-                        add_class("Son", cname, cprov, ccost, cfreq, cstart)
-                        st.success(f"✅ Added: {cname}")
+                    ccost  = st.number_input("Cost per session ($)", min_value=0.0, step=5.0)
+                    cfreq  = st.selectbox("Frequency", FREQUENCIES)
+                    cstart = st.date_input("Start Date", value=date.today())
+
+                st.markdown("##### Schedule")
+                cdays = st.multiselect("Class Days *", DAYS_OF_WEEK,
+                                       help="Select all days this class meets")
+                t1, t2 = st.columns(2)
+                with t1:
+                    ct_start = st.time_input("Start Time", value=None, key="son_tstart")
+                with t2:
+                    ct_end   = st.time_input("End Time", value=None, key="son_tend")
+
+                st.markdown("##### Reminders")
+                auto_remind = st.checkbox("Auto-add weekly reminder for each class day",
+                                          value=True, key="son_autoremind")
+
+                if st.form_submit_button("➕ Add Class", type="primary"):
+                    if not cname:
+                        st.error("Class name is required.")
+                    elif not cdays:
+                        st.error("Select at least one class day.")
+                    else:
+                        days_str   = ",".join(cdays)
+                        ts_str     = ct_start.strftime("%I:%M %p") if ct_start else ""
+                        te_str     = ct_end.strftime("%I:%M %p") if ct_end else ""
+                        add_class("Son", cname, cprov, ccost, cfreq, cstart,
+                                  days=days_str, time_start=ts_str,
+                                  time_end=te_str, location=cloc)
+                        if auto_remind:
+                            from services.reminders import add as add_rem
+                            for d in cdays:
+                                # next occurrence of this day
+                                today_d = date.today()
+                                d_num   = DAYS_OF_WEEK.index(d)
+                                days_until = (d_num - today_d.weekday()) % 7
+                                next_d  = today_d + timedelta(days=days_until if days_until else 7)
+                                detail  = f"{cprov}" + (f" · {ts_str}–{te_str}" if ts_str else "") + (f" · {cloc}" if cloc else "")
+                                add_rem("kids", f"📚 {cname} — {d}", detail, next_d,
+                                        remind_days=0, frequency="weekly", channels="push")
+                        st.success(f"✅ Added: {cname}" + (" · reminders created" if auto_remind else ""))
                         st.rerun()
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -759,30 +842,110 @@ with child_tab2:
         cls_df_d = list_classes(child="Daughter")
         monthly_d = monthly_cost("Daughter")
 
-        m1, m2 = st.columns(2)
+        m1, m2, m3 = st.columns(3)
         m1.metric("Active Classes", len(cls_df_d) if not cls_df_d.empty else 0)
         m2.metric("Est. Monthly Cost", f"${monthly_d:,.0f}")
+        m3.metric("Est. Annual Cost", f"${monthly_d*12:,.0f}")
 
-        if not cls_df_d.empty:
-            st.dataframe(
-                cls_df_d[["name","provider","cost","frequency","start_date"]],
-                use_container_width=True, hide_index=True,
-            )
-        else:
-            st.info("No classes yet.")
+        dl1, dl2, dl3 = st.tabs(["📋 Classes List", "📅 Upcoming Schedule", "➕ Add Class"])
 
-        with st.expander("➕ Add a Class / Activity"):
+        with dl1:
+            if not cls_df_d.empty:
+                disp_cols = [c for c in ["name","provider","days","time_start","time_end","location","cost","frequency","start_date"]
+                             if c in cls_df_d.columns]
+                st.dataframe(cls_df_d[disp_cols], use_container_width=True, hide_index=True)
+                st.markdown("---")
+                st.markdown("##### 🗑️ Remove a Class")
+                del_id_d = st.selectbox("Select class to deactivate",
+                                        ["— select —"] + cls_df_d["id"].tolist(),
+                                        format_func=lambda x: cls_df_d.loc[cls_df_d["id"]==x,"name"].iloc[0] if x != "— select —" else x,
+                                        key="del_daughter_class")
+                if del_id_d != "— select —":
+                    if st.button("Deactivate class", key="deact_daughter"):
+                        delete_class(del_id_d)
+                        st.success("Deactivated.")
+                        st.rerun()
+            else:
+                st.info("No classes yet. Use the ➕ Add Class tab to get started.")
+
+        with dl2:
+            sessions_d = upcoming_sessions(child="Daughter", days_ahead=21)
+            if not sessions_d:
+                if cls_df_d.empty:
+                    st.info("No classes added yet.")
+                else:
+                    st.info("No classes have day/time set. Add schedule details when creating a class.")
+            else:
+                st.markdown("##### 📅 Next 21 Days — Daughter's Classes")
+                today_d2 = date.today()
+                cur_date2 = None
+                for s in sessions_d:
+                    if s["date"] != cur_date2:
+                        cur_date2 = s["date"]
+                        delta = (cur_date2 - today_d2).days
+                        dlabel = "Today" if delta == 0 else ("Tomorrow" if delta == 1 else
+                                 cur_date2.strftime("%A, %b %d"))
+                        st.markdown(f"**{dlabel}**")
+                    time_str = f"{s['time_start']}–{s['time_end']}" if s['time_start'] else ""
+                    loc_str  = f" · 📍 {s['location']}" if s['location'] else ""
+                    st.markdown(
+                        f"""<div style="margin-left:16px;padding:9px 14px;background:#fdf4ff;
+                            border-left:3px solid #9333ea;border-radius:8px;margin-bottom:5px;
+                            display:flex;gap:14px;align-items:center;flex-wrap:wrap;">
+                          <span style="font-size:13px;font-weight:600;color:#6b21a8;">{s['class']}</span>
+                          <span style="font-size:12px;color:#9333ea;">{s['provider']}</span>
+                          {'<span style="font-size:12px;color:#7c3aed;">🕐 ' + time_str + '</span>' if time_str else ''}
+                          <span style="font-size:12px;color:#64748b;margin-left:auto;">{loc_str}</span>
+                        </div>""",
+                        unsafe_allow_html=True,
+                    )
+
+        with dl3:
             with st.form("add_class_daughter"):
+                st.markdown("##### Class Details")
                 c1, c2 = st.columns(2)
                 with c1:
-                    cname = st.text_input("Class Name")
-                    cprov = st.text_input("Provider")
+                    cname  = st.text_input("Class Name *")
+                    cprov  = st.text_input("Provider / Instructor")
+                    cloc   = st.text_input("Location", placeholder="e.g. Online, Studio")
                 with c2:
-                    ccost = st.number_input("Cost ($)", min_value=0.0, step=5.0)
-                    cfreq = st.selectbox("Frequency", FREQUENCIES)
-                cstart = st.date_input("Start Date", value=date.today())
-                if st.form_submit_button("Add Class", type="primary"):
-                    if cname:
-                        add_class("Daughter", cname, cprov, ccost, cfreq, cstart)
-                        st.success(f"✅ Added: {cname}")
+                    ccost  = st.number_input("Cost per session ($)", min_value=0.0, step=5.0)
+                    cfreq  = st.selectbox("Frequency", FREQUENCIES)
+                    cstart = st.date_input("Start Date", value=date.today())
+
+                st.markdown("##### Schedule")
+                cdays = st.multiselect("Class Days *", DAYS_OF_WEEK, key="daughter_days")
+                t1, t2 = st.columns(2)
+                with t1:
+                    ct_start = st.time_input("Start Time", value=None, key="daughter_tstart")
+                with t2:
+                    ct_end   = st.time_input("End Time", value=None, key="daughter_tend")
+
+                st.markdown("##### Reminders")
+                auto_remind_d = st.checkbox("Auto-add weekly reminder for each class day",
+                                            value=True, key="daughter_autoremind")
+
+                if st.form_submit_button("➕ Add Class", type="primary"):
+                    if not cname:
+                        st.error("Class name is required.")
+                    elif not cdays:
+                        st.error("Select at least one class day.")
+                    else:
+                        days_str  = ",".join(cdays)
+                        ts_str    = ct_start.strftime("%I:%M %p") if ct_start else ""
+                        te_str    = ct_end.strftime("%I:%M %p") if ct_end else ""
+                        add_class("Daughter", cname, cprov, ccost, cfreq, cstart,
+                                  days=days_str, time_start=ts_str,
+                                  time_end=te_str, location=cloc)
+                        if auto_remind_d:
+                            from services.reminders import add as add_rem
+                            for d in cdays:
+                                today_d2   = date.today()
+                                d_num      = DAYS_OF_WEEK.index(d)
+                                days_until = (d_num - today_d2.weekday()) % 7
+                                next_d     = today_d2 + timedelta(days=days_until if days_until else 7)
+                                detail     = f"{cprov}" + (f" · {ts_str}–{te_str}" if ts_str else "") + (f" · {cloc}" if cloc else "")
+                                add_rem("kids", f"📚 {cname} — {d}", detail, next_d,
+                                        remind_days=0, frequency="weekly", channels="push")
+                        st.success(f"✅ Added: {cname}" + (" · reminders created" if auto_remind_d else ""))
                         st.rerun()
