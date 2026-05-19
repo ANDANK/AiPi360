@@ -341,16 +341,173 @@ with child_tab1:
                             st.rerun()
 
         with sub2:
-            st.markdown("#### 🎯 STAAR Exam Preparation")
-            staar1, staar2, staar3, staar4 = st.tabs(["📋 Prep Plan", "🌐 Sites & Papers", "✏️ Section Tests", "📝 Full Mock Test"])
-            with staar1:
-                coming_soon("STAAR Preparation Plan — track progress by subject")
-            with staar2:
-                coming_soon("Curated STAAR practice sites & model papers")
-            with staar3:
-                coming_soon("Section-level practice tests with scoring")
-            with staar4:
-                coming_soon("Full-length mock STAAR tests")
+            st.markdown("#### 🎯 STAAR Exam Preparation — Grade 6")
+            from services.staar_prep import RESOURCES, FLASHCARDS, MINI_TESTS, STUDY_PLAN_G6
+
+            _sp_tabs = st.tabs(["📋 Study Plan", "🃏 Flashcards", "🌐 Resources", "✏️ Mini Tests", "📝 Official Tests"])
+
+            # ── Study Plan ────────────────────────────────────────────────────
+            with _sp_tabs[0]:
+                st.markdown("##### 📋 Monthly STAAR Prep Schedule — Grade 6")
+                st.caption("Aligned to TEKS pacing · STAAR Math & RLA typically in April")
+                for mo in STUDY_PLAN_G6:
+                    is_staar = "April" in mo["month"]
+                    label = f"📅 {mo['month']} — {mo['label']}{' ★ STAAR MONTH' if is_staar else ''}"
+                    with st.expander(label, expanded=is_staar):
+                        c1, c2 = st.columns(2)
+                        with c1:
+                            st.markdown("**Math Topics**")
+                            for t in mo["math"]:
+                                st.markdown(f"• {t}")
+                        with c2:
+                            st.markdown("**ELA / Reading Topics**")
+                            for t in mo["ela"]:
+                                st.markdown(f"• {t}")
+                        st.info(f"💡 {mo['tip']}")
+
+            # ── Flashcards ────────────────────────────────────────────────────
+            with _sp_tabs[1]:
+                st.markdown("##### 🃏 Interactive Flashcards")
+                fc_sets = list(FLASHCARDS.keys())
+                fc_set  = st.selectbox("Flashcard Set", fc_sets, key="g6_fc_set")
+                cards   = FLASHCARDS[fc_set]
+                total   = len(cards)
+                if st.session_state.get("g6_fc_last_set") != fc_set:
+                    st.session_state["g6_fc_idx"] = 0
+                    st.session_state["g6_fc_revealed"] = False
+                    st.session_state["g6_fc_last_set"] = fc_set
+                idx  = st.session_state.get("g6_fc_idx", 0)
+                card = cards[idx]
+                st.markdown(
+                    f"""<div style="background:#eff6ff;border:2px solid #3b82f6;border-radius:14px;
+                        padding:24px;margin-bottom:12px;text-align:center;">
+                      <div style="font-size:11px;color:#2563eb;font-weight:600;margin-bottom:8px;">
+                        {card['strand'].upper()} &nbsp;·&nbsp; Card {idx+1} of {total}</div>
+                      <div style="font-size:18px;font-weight:700;color:#1e3a8a;line-height:1.5;">
+                        {card['q']}</div>
+                    </div>""", unsafe_allow_html=True)
+                if st.session_state.get("g6_fc_revealed"):
+                    st.markdown(
+                        f"""<div style="background:#f0fdf4;border:2px solid #22c55e;border-radius:14px;
+                            padding:20px;white-space:pre-wrap;font-size:14px;color:#14532d;line-height:1.6;">
+                          {card['a']}</div>""", unsafe_allow_html=True)
+                    if st.button("🔒 Hide Answer", key="g6_fc_hide"):
+                        st.session_state["g6_fc_revealed"] = False
+                        st.rerun()
+                else:
+                    if st.button("👁️ Reveal Answer", key="g6_fc_reveal", type="primary"):
+                        st.session_state["g6_fc_revealed"] = True
+                        st.rerun()
+                nav1, nav2, nav3 = st.columns([1, 2, 1])
+                with nav1:
+                    if st.button("← Prev", key="g6_fc_prev", disabled=(idx == 0)):
+                        st.session_state["g6_fc_idx"] = idx - 1
+                        st.session_state["g6_fc_revealed"] = False
+                        st.rerun()
+                with nav2:
+                    st.markdown(f"<div style='text-align:center;color:#64748b;font-size:13px;padding-top:8px;'>"
+                                f"{idx+1} / {total}</div>", unsafe_allow_html=True)
+                with nav3:
+                    if st.button("Next →", key="g6_fc_next", disabled=(idx >= total - 1)):
+                        st.session_state["g6_fc_idx"] = idx + 1
+                        st.session_state["g6_fc_revealed"] = False
+                        st.rerun()
+                strands = sorted(set(c["strand"] for c in cards))
+                st.caption(f"Strands in this set: {' · '.join(strands)}")
+
+            # ── Resources ─────────────────────────────────────────────────────
+            with _sp_tabs[2]:
+                st.markdown("##### 🌐 Curated STAAR Resources — Grade 6")
+                grade_res = RESOURCES.get(6, {})
+                for subject, categories in grade_res.items():
+                    st.markdown(f"**{subject}**")
+                    for cat_name, items in categories.items():
+                        with st.expander(f"📂 {cat_name} ({len(items)})"):
+                            for item in items:
+                                free_badge = ('<span style="background:#dcfce7;color:#15803d;border-radius:8px;'
+                                             'padding:1px 7px;font-size:11px;font-weight:600;">FREE</span>'
+                                             if item["free"] else
+                                             '<span style="background:#fee2e2;color:#b91c1c;border-radius:8px;'
+                                             'padding:1px 7px;font-size:11px;">PAID</span>')
+                                st.markdown(
+                                    f"""<div style="padding:8px 0;border-bottom:1px solid #f1f5f9;">
+                                      <a href="{item['url']}" target="_blank"
+                                         style="font-weight:600;font-size:13px;color:#1d4ed8;">{item['name']}</a>
+                                      &nbsp;{free_badge}
+                                      <div style="font-size:12px;color:#64748b;margin-top:2px;">{item['note']}</div>
+                                    </div>""", unsafe_allow_html=True)
+                    st.markdown("---")
+
+            # ── Mini Tests ────────────────────────────────────────────────────
+            with _sp_tabs[3]:
+                st.markdown("##### ✏️ Strand-Level Mini Tests — Grade 6 (STAAR-Style MCQ)")
+                g6_mt_keys = [k for k in MINI_TESTS if k.startswith("Grade 6")]
+                mt_sel = st.selectbox("Choose a strand test", g6_mt_keys, key="g6_mt_sel")
+                questions = MINI_TESTS[mt_sel]
+                if st.session_state.get("g6_mt_last_sel") != mt_sel:
+                    st.session_state["g6_mt_answers"]   = [None] * len(questions)
+                    st.session_state["g6_mt_submitted"]  = False
+                    st.session_state["g6_mt_last_sel"]   = mt_sel
+                answers   = st.session_state.get("g6_mt_answers", [None] * len(questions))
+                submitted = st.session_state.get("g6_mt_submitted", False)
+                for i, qdata in enumerate(questions):
+                    st.markdown(f"**Q{i+1}. {qdata['q']}**")
+                    cur_idx = answers[i] if (answers[i] is not None) else 0
+                    sel = st.radio(f"q6_{i}", qdata["opts"], index=cur_idx,
+                                   key=f"g6_mt_{mt_sel}_{i}", label_visibility="collapsed")
+                    answers[i] = qdata["opts"].index(sel)
+                    if submitted:
+                        correct = (answers[i] == qdata["ans"])
+                        bg_c = "#dcfce7" if correct else "#fee2e2"
+                        st.markdown(
+                            f"""<div style="background:{bg_c};border-radius:8px;padding:8px 12px;margin-bottom:4px;font-size:13px;">
+                              {"✅ Correct!" if correct else f'❌ Incorrect. Correct: <em>{qdata["opts"][qdata["ans"]]}</em>'}
+                              <br><span style="color:#475569;">{qdata['exp']}</span>
+                            </div>""", unsafe_allow_html=True)
+                    st.markdown("---")
+                st.session_state["g6_mt_answers"] = answers
+                if not submitted:
+                    if st.button("Submit Answers", key="g6_mt_submit", type="primary"):
+                        st.session_state["g6_mt_submitted"] = True
+                        st.rerun()
+                else:
+                    score = sum(1 for i, q in enumerate(questions) if answers[i] == q["ans"])
+                    pct   = int(score / len(questions) * 100)
+                    bg_s  = "#dcfce7" if pct >= 80 else "#fef9c3" if pct >= 60 else "#fee2e2"
+                    msg   = "Great job! 🎉" if pct >= 80 else "Keep practicing! 💪" if pct >= 60 else "Review this strand! 📖"
+                    st.markdown(
+                        f"""<div style="background:{bg_s};border-radius:12px;padding:16px;
+                            text-align:center;font-size:16px;font-weight:700;">
+                          Score: {score}/{len(questions)} — {pct}% &nbsp; {msg}
+                        </div>""", unsafe_allow_html=True)
+                    if st.button("Try Again", key="g6_mt_retry"):
+                        st.session_state["g6_mt_answers"]  = [None] * len(questions)
+                        st.session_state["g6_mt_submitted"] = False
+                        st.rerun()
+
+            # ── Official Tests ────────────────────────────────────────────────
+            with _sp_tabs[4]:
+                st.markdown("##### 📝 Official TEA Interactive Tests — Grade 6")
+                st.info("Opens in a new tab · exact STAAR format · free · no login needed")
+                for t in [
+                    {"label": "Grade 6 Math — Interactive Practice Test (TEA)",
+                     "url": "https://txpt.cambiumtds.com/student/?testId=TXPT-GEN-PRAC-UD-MA-2024-6&skipIntoTest=true&grade=6"},
+                    {"label": "Grade 6 RLA — Interactive Practice Test (TEA)",
+                     "url": "https://txpt.cambiumtds.com/student/?testId=TXPT-GEN-PRAC-UD-ELA-Reading_2024-6&skipIntoTest=true&grade=6"},
+                ]:
+                    st.markdown(
+                        f"""<div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:12px;
+                            padding:16px;margin-bottom:10px;">
+                          <a href="{t['url']}" target="_blank"
+                             style="font-size:15px;font-weight:700;color:#1d4ed8;">🔗 {t['label']}</a>
+                        </div>""", unsafe_allow_html=True)
+                st.markdown("**Released Tests & Keys (PDF)**")
+                st.markdown(
+                    "- [2023 Grade 6 Math Practice Test](https://tea.texas.gov/student-assessment/staar/"
+                    "released-test-questions/2023-staar-redesign-6-math-practice-test.pdf)\n"
+                    "- [TEA STAAR Released Questions Hub](https://tea.texas.gov/student-assessment/staar/"
+                    "staar-released-test-questions) — all grades & years"
+                )
 
         with sub3:
             st.markdown("#### 🔢 Math Rocks & Number Sense")
@@ -389,7 +546,96 @@ with child_tab1:
         with g7a:
             coming_soon("Grade 7 — Syllabus & monthly plan (mirrors Grade 6 structure)")
         with g7b:
-            coming_soon("Grade 7 STAAR preparation")
+            st.markdown("#### 🎯 STAAR Exam Preparation — Grade 7")
+            from services.staar_prep import RESOURCES as _STAAR_RES, FLASHCARDS as _STAAR_FC
+            _g7_tabs = st.tabs(["🃏 Flashcards", "🌐 Resources", "📝 Official Tests"])
+
+            with _g7_tabs[0]:
+                st.markdown("##### 🃏 Grade 7 Math Flashcards")
+                g7_cards = _STAAR_FC.get("Grade 7 Math", [])
+                g7_total = len(g7_cards)
+                if st.session_state.get("g7_fc_idx") is None:
+                    st.session_state["g7_fc_idx"] = 0
+                if st.session_state.get("g7_fc_revealed") is None:
+                    st.session_state["g7_fc_revealed"] = False
+                g7_idx  = st.session_state.get("g7_fc_idx", 0)
+                g7_card = g7_cards[g7_idx]
+                st.markdown(
+                    f"""<div style="background:#f0fdf4;border:2px solid #22c55e;border-radius:14px;
+                        padding:24px;margin-bottom:12px;text-align:center;">
+                      <div style="font-size:11px;color:#15803d;font-weight:600;margin-bottom:8px;">
+                        {g7_card['strand'].upper()} &nbsp;·&nbsp; Card {g7_idx+1} of {g7_total}</div>
+                      <div style="font-size:18px;font-weight:700;color:#14532d;line-height:1.5;">
+                        {g7_card['q']}</div>
+                    </div>""", unsafe_allow_html=True)
+                if st.session_state.get("g7_fc_revealed"):
+                    st.markdown(
+                        f"""<div style="background:#eff6ff;border:2px solid #3b82f6;border-radius:14px;
+                            padding:20px;white-space:pre-wrap;font-size:14px;color:#1e3a8a;line-height:1.6;">
+                          {g7_card['a']}</div>""", unsafe_allow_html=True)
+                    if st.button("🔒 Hide", key="g7_fc_hide"):
+                        st.session_state["g7_fc_revealed"] = False
+                        st.rerun()
+                else:
+                    if st.button("👁️ Reveal Answer", key="g7_fc_reveal", type="primary"):
+                        st.session_state["g7_fc_revealed"] = True
+                        st.rerun()
+                n1, n2, n3 = st.columns([1, 2, 1])
+                with n1:
+                    if st.button("← Prev", key="g7_fc_prev", disabled=(g7_idx == 0)):
+                        st.session_state["g7_fc_idx"] = g7_idx - 1
+                        st.session_state["g7_fc_revealed"] = False
+                        st.rerun()
+                with n2:
+                    st.markdown(f"<div style='text-align:center;color:#64748b;font-size:13px;"
+                                f"padding-top:8px;'>{g7_idx+1} / {g7_total}</div>", unsafe_allow_html=True)
+                with n3:
+                    if st.button("Next →", key="g7_fc_next", disabled=(g7_idx >= g7_total - 1)):
+                        st.session_state["g7_fc_idx"] = g7_idx + 1
+                        st.session_state["g7_fc_revealed"] = False
+                        st.rerun()
+
+            with _g7_tabs[1]:
+                st.markdown("##### 🌐 Curated STAAR Resources — Grade 7")
+                g7_res = _STAAR_RES.get(7, {})
+                for subj, cats in g7_res.items():
+                    st.markdown(f"**{subj}**")
+                    for cat_name, items in cats.items():
+                        with st.expander(f"📂 {cat_name} ({len(items)})"):
+                            for item in items:
+                                free_badge = ('<span style="background:#dcfce7;color:#15803d;border-radius:8px;'
+                                             'padding:1px 7px;font-size:11px;font-weight:600;">FREE</span>'
+                                             if item["free"] else
+                                             '<span style="background:#fee2e2;color:#b91c1c;border-radius:8px;'
+                                             'padding:1px 7px;font-size:11px;">PAID</span>')
+                                st.markdown(
+                                    f"""<div style="padding:8px 0;border-bottom:1px solid #f1f5f9;">
+                                      <a href="{item['url']}" target="_blank"
+                                         style="font-weight:600;font-size:13px;color:#1d4ed8;">{item['name']}</a>
+                                      &nbsp;{free_badge}
+                                      <div style="font-size:12px;color:#64748b;margin-top:2px;">{item['note']}</div>
+                                    </div>""", unsafe_allow_html=True)
+                    st.markdown("---")
+
+            with _g7_tabs[2]:
+                st.markdown("##### 📝 Official TEA Interactive Tests — Grade 7")
+                st.info("Opens in a new tab · exact STAAR format · free · no login needed")
+                for t in [
+                    {"label": "Grade 7 Math — Interactive Practice Test (TEA)",
+                     "url": "https://txpt.cambiumtds.com/student/?testId=TXPT-GEN-PRAC-UD-MA-2024-7&skipIntoTest=true&grade=7"},
+                    {"label": "Grade 7 RLA — Interactive Practice Test (TEA)",
+                     "url": "https://txpt.cambiumtds.com/student/?testId=TXPT-GEN-PRAC-UD-ELA-Reading_2024-7&skipIntoTest=true&grade=7"},
+                ]:
+                    st.markdown(
+                        f"""<div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:12px;
+                            padding:16px;margin-bottom:10px;">
+                          <a href="{t['url']}" target="_blank"
+                             style="font-size:15px;font-weight:700;color:#15803d;">🔗 {t['label']}</a>
+                        </div>""", unsafe_allow_html=True)
+                st.markdown(
+                    "- [TEA STAAR Released Questions Hub](https://tea.texas.gov/student-assessment/staar/"
+                    "staar-released-test-questions) — all grades & years"
+                )
         with g7c:
             st.markdown("#### 🎓 High School Preparation from Grade 7")
             st.markdown("""
@@ -418,7 +664,102 @@ with child_tab1:
         with g8a:
             coming_soon("Grade 8 — Syllabus & monthly plan")
         with g8b:
-            coming_soon("Grade 8 STAAR preparation + high school readiness")
+            st.markdown("#### 🎯 STAAR Exam Preparation — Grade 8")
+            from services.staar_prep import RESOURCES as _STAAR_RES8, FLASHCARDS as _STAAR_FC8
+            _g8_tabs = st.tabs(["🃏 Flashcards", "🌐 Resources", "📝 Official Tests"])
+
+            with _g8_tabs[0]:
+                st.markdown("##### 🃏 Grade 8 Math Flashcards")
+                g8_cards = _STAAR_FC8.get("Grade 8 Math", [])
+                g8_total = len(g8_cards)
+                if st.session_state.get("g8_fc_idx") is None:
+                    st.session_state["g8_fc_idx"] = 0
+                if st.session_state.get("g8_fc_revealed") is None:
+                    st.session_state["g8_fc_revealed"] = False
+                g8_idx  = st.session_state.get("g8_fc_idx", 0)
+                g8_card = g8_cards[g8_idx]
+                st.markdown(
+                    f"""<div style="background:#fef3c7;border:2px solid #f59e0b;border-radius:14px;
+                        padding:24px;margin-bottom:12px;text-align:center;">
+                      <div style="font-size:11px;color:#b45309;font-weight:600;margin-bottom:8px;">
+                        {g8_card['strand'].upper()} &nbsp;·&nbsp; Card {g8_idx+1} of {g8_total}</div>
+                      <div style="font-size:18px;font-weight:700;color:#78350f;line-height:1.5;">
+                        {g8_card['q']}</div>
+                    </div>""", unsafe_allow_html=True)
+                if st.session_state.get("g8_fc_revealed"):
+                    st.markdown(
+                        f"""<div style="background:#eff6ff;border:2px solid #3b82f6;border-radius:14px;
+                            padding:20px;white-space:pre-wrap;font-size:14px;color:#1e3a8a;line-height:1.6;">
+                          {g8_card['a']}</div>""", unsafe_allow_html=True)
+                    if st.button("🔒 Hide", key="g8_fc_hide"):
+                        st.session_state["g8_fc_revealed"] = False
+                        st.rerun()
+                else:
+                    if st.button("👁️ Reveal Answer", key="g8_fc_reveal", type="primary"):
+                        st.session_state["g8_fc_revealed"] = True
+                        st.rerun()
+                n1, n2, n3 = st.columns([1, 2, 1])
+                with n1:
+                    if st.button("← Prev", key="g8_fc_prev", disabled=(g8_idx == 0)):
+                        st.session_state["g8_fc_idx"] = g8_idx - 1
+                        st.session_state["g8_fc_revealed"] = False
+                        st.rerun()
+                with n2:
+                    st.markdown(f"<div style='text-align:center;color:#64748b;font-size:13px;"
+                                f"padding-top:8px;'>{g8_idx+1} / {g8_total}</div>", unsafe_allow_html=True)
+                with n3:
+                    if st.button("Next →", key="g8_fc_next", disabled=(g8_idx >= g8_total - 1)):
+                        st.session_state["g8_fc_idx"] = g8_idx + 1
+                        st.session_state["g8_fc_revealed"] = False
+                        st.rerun()
+
+            with _g8_tabs[1]:
+                st.markdown("##### 🌐 Curated STAAR Resources — Grade 8")
+                g8_res = _STAAR_RES8.get(8, {})
+                for subj, cats in g8_res.items():
+                    st.markdown(f"**{subj}**")
+                    for cat_name, items in cats.items():
+                        with st.expander(f"📂 {cat_name} ({len(items)})"):
+                            for item in items:
+                                free_badge = ('<span style="background:#dcfce7;color:#15803d;border-radius:8px;'
+                                             'padding:1px 7px;font-size:11px;font-weight:600;">FREE</span>'
+                                             if item["free"] else
+                                             '<span style="background:#fee2e2;color:#b91c1c;border-radius:8px;'
+                                             'padding:1px 7px;font-size:11px;">PAID</span>')
+                                st.markdown(
+                                    f"""<div style="padding:8px 0;border-bottom:1px solid #f1f5f9;">
+                                      <a href="{item['url']}" target="_blank"
+                                         style="font-weight:600;font-size:13px;color:#1d4ed8;">{item['name']}</a>
+                                      &nbsp;{free_badge}
+                                      <div style="font-size:12px;color:#64748b;margin-top:2px;">{item['note']}</div>
+                                    </div>""", unsafe_allow_html=True)
+                    st.markdown("---")
+
+            with _g8_tabs[2]:
+                st.markdown("##### 📝 Official TEA Interactive Tests — Grade 8")
+                st.info("Opens in a new tab · exact STAAR format · free · no login needed")
+                for t in [
+                    {"label": "Grade 8 Math — Interactive Practice Test (TEA)",
+                     "url": "https://txpt.cambiumtds.com/student/?testId=TXPT-GEN-PRAC-UD-MA-2024-8&skipIntoTest=true&grade=8"},
+                    {"label": "Grade 8 RLA — Interactive Practice Test (TEA)",
+                     "url": "https://txpt.cambiumtds.com/student/?testId=TXPT-GEN-PRAC-UD-ELA-Reading_2024-8&skipIntoTest=true&grade=8"},
+                    {"label": "Grade 8 Science — Interactive Practice Test (TEA)",
+                     "url": "https://txpt.cambiumtds.com/student/?testId=TXPT-GEN-PRAC-UD-SC-2024-8&skipIntoTest=true&grade=8"},
+                ]:
+                    st.markdown(
+                        f"""<div style="background:#fef3c7;border:1px solid #fde68a;border-radius:12px;
+                            padding:16px;margin-bottom:10px;">
+                          <a href="{t['url']}" target="_blank"
+                             style="font-size:15px;font-weight:700;color:#b45309;">🔗 {t['label']}</a>
+                        </div>""", unsafe_allow_html=True)
+                st.markdown(
+                    "- [2023 Grade 8 Math Practice Test PDF](https://tea.texas.gov/student-assessment/staar/"
+                    "released-test-questions/2023-staar-redesign-8-math-practice-test.pdf)\n"
+                    "- [2023 Grade 8 Science Practice Test PDF](https://tea.texas.gov/student-assessment/staar/"
+                    "released-test-questions/2023-staar-redesign-8-science-practice-test.pdf)\n"
+                    "- [TEA STAAR Released Questions Hub](https://tea.texas.gov/student-assessment/staar/"
+                    "staar-released-test-questions)"
+                )
         with g8c:
             st.markdown("#### 🚀 Clear Path to High School & Beyond")
             st.markdown("""
