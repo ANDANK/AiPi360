@@ -387,3 +387,281 @@ TEA_CODES = {
     "Science":        "§112.18 — Grade 6, Adopted 2010 (revised 2018)",
     "Social Studies": "§113.18 — Grade 6, Adopted 2018",
 }
+
+
+def month_key(label: str) -> str:
+    """Extract 3-letter month abbreviation from a month label string."""
+    return label.split()[0][:3]
+
+
+# ── STAAR strand / TEA TEKS mapping per month ─────────────────────────────────
+# Math/ELA: STAAR readiness standard codes  |  Science/SS: TEA TEKS section refs
+STAAR_STRAND_MAP: dict[str, dict[str, str]] = {
+    "Math": {
+        "Aug": "",
+        "Sep": "6.3 — Integer & Rational Ops",
+        "Oct": "6.4 — Proportionality",
+        "Nov": "6.4 — Proportionality",
+        "Dec": "6.7 — Expressions",
+        "Jan": "6.7 — Equations & Inequalities",
+        "Feb": "6.8 — Geometry",
+        "Mar": "6.8 — Geometry",
+        "Apr": "6.12 — Data Analysis",
+        "May": "6.14 — Financial Literacy",
+    },
+    "ELA": {
+        "Aug": "6.8 — Literary Text",
+        "Sep": "6.8 — Literary Text",
+        "Oct": "6.9 — Informational Text",
+        "Nov": "6.9 — Info Text | 6.10 — Author's Craft",
+        "Dec": "6.10 — Author's Craft",
+        "Jan": "6.8 — Literary Text (Poetry/Drama)",
+        "Feb": "6.8 + 6.9 | 6.5 — Response Skills",
+        "Mar": "6.10 — Composition",
+        "Apr": "6.8 + 6.9 + 6.10 + 6.5 — Full Review",
+        "May": "6.8 — Literary Text",
+    },
+    "Science": {
+        "Aug": "§112.18(b)(1-3) — Scientific Investigation",
+        "Sep": "§112.18(b)(5) — Physical Properties",
+        "Oct": "§112.18(b)(5) — Chemical Changes",
+        "Nov": "§112.18(b)(6) — Force, Motion & Energy",
+        "Dec": "§112.18(b)(8) — Earth's Structure",
+        "Jan": "§112.18(b)(7) — Earth Materials",
+        "Feb": "§112.18(b)(8) — Atmosphere & Oceans",
+        "Mar": "§112.18(b)(11) — Cells & Organisms",
+        "Apr": "§112.18(b)(12) — Ecosystems",
+        "May": "§112.18(b)(11) — Human Body",
+    },
+    "Social Studies": {
+        "Aug": "§113.18(b)(17-18) — Geography",
+        "Sep": "§113.18(b)(1) — History",
+        "Oct": "§113.18(b)(1) — History",
+        "Nov": "§113.18(b)(1) — History | (b)(22) — Culture",
+        "Dec": "§113.18(b)(22) — Culture & Religion",
+        "Jan": "§113.18(b)(1) — History | (b)(14) — Govt",
+        "Feb": "§113.18(b)(1) — History | (b)(14) — Govt",
+        "Mar": "§113.18(b)(1-2) — History",
+        "Apr": "§113.18(b)(3) — History | (b)(9) — Economics",
+        "May": "All Strands — Review & Synthesis",
+    },
+}
+
+# ── Curated monthly resources: Khan Academy, YouTube, other free sources ──────
+# Keyed by subject → 3-letter month abbreviation → list of resource dicts
+# Each resource: {"title": str, "url": str, "source": str}
+_KA_MATH = "https://www.khanacademy.org/math/cc-sixth-grade-math"
+_KA_HUM  = "https://www.khanacademy.org/humanities"
+_KA_WH   = "https://www.khanacademy.org/humanities/world-history"
+_YT      = "https://www.youtube.com/results?search_query="
+_CK12    = "https://www.ck12.org"
+
+MONTHLY_RESOURCES: dict[str, dict[str, list[dict]]] = {
+    "Math": {
+        "Aug": [
+            {"title": "6th Grade Math — Full Hub", "url": _KA_MATH, "source": "Khan Academy"},
+            {"title": "5th→6th Grade Math Review", "url": _YT + "6th+grade+math+review+rational+numbers", "source": "YouTube"},
+        ],
+        "Sep": [
+            {"title": "Negative Numbers & Fractions", "url": _KA_MATH, "source": "Khan Academy"},
+            {"title": "Multiply & Divide Fractions", "url": _YT + "multiplying+dividing+fractions+6th+grade", "source": "YouTube"},
+            {"title": "Rational Numbers Practice", "url": "https://www.ixl.com/math/grade-6", "source": "IXL"},
+        ],
+        "Oct": [
+            {"title": "Ratios & Rates", "url": _KA_MATH, "source": "Khan Academy"},
+            {"title": "Unit Rates & Ratio Tables", "url": _YT + "unit+rates+ratio+tables+6th+grade", "source": "YouTube"},
+            {"title": "Scale Drawings", "url": _YT + "scale+drawings+proportions+6th+grade", "source": "YouTube"},
+        ],
+        "Nov": [
+            {"title": "Percentages", "url": _KA_MATH, "source": "Khan Academy"},
+            {"title": "Percent Word Problems (Tax, Tip, Discount)", "url": _YT + "percent+word+problems+tax+tip+discount+6th+grade", "source": "YouTube"},
+            {"title": "Simple Interest", "url": _YT + "simple+interest+6th+grade+math", "source": "YouTube"},
+        ],
+        "Dec": [
+            {"title": "Expressions & Variables", "url": _KA_MATH, "source": "Khan Academy"},
+            {"title": "Writing Algebraic Expressions", "url": _YT + "writing+algebraic+expressions+6th+grade", "source": "YouTube"},
+            {"title": "Tables & Graphs — Relationships", "url": _YT + "independent+dependent+variables+6th+grade+math", "source": "YouTube"},
+        ],
+        "Jan": [
+            {"title": "Equations & Inequalities", "url": _KA_MATH, "source": "Khan Academy"},
+            {"title": "One-Step Equations (all operations)", "url": _YT + "one+step+equations+6th+grade+math", "source": "YouTube"},
+            {"title": "Graphing Inequalities on Number Line", "url": _YT + "inequalities+number+line+6th+grade", "source": "YouTube"},
+        ],
+        "Feb": [
+            {"title": "Geometry — Area & Surface Area", "url": _KA_MATH, "source": "Khan Academy"},
+            {"title": "Area of Composite Figures", "url": _YT + "area+composite+figures+6th+grade", "source": "YouTube"},
+            {"title": "Surface Area & Nets", "url": _YT + "surface+area+nets+rectangular+triangular+prism", "source": "YouTube"},
+        ],
+        "Mar": [
+            {"title": "Geometry — Volume & Coordinate Plane", "url": _KA_MATH, "source": "Khan Academy"},
+            {"title": "Coordinate Plane — All 4 Quadrants", "url": _YT + "coordinate+plane+4+quadrants+6th+grade", "source": "YouTube"},
+            {"title": "Volume Fractional Dimensions", "url": _YT + "volume+rectangular+prism+fractions+6th+grade", "source": "YouTube"},
+        ],
+        "Apr": [
+            {"title": "Statistics & Data Analysis", "url": _KA_MATH, "source": "Khan Academy"},
+            {"title": "Mean, Median, Mode, IQR, Box Plots", "url": _YT + "mean+median+mode+IQR+box+plot+6th+grade", "source": "YouTube"},
+            {"title": "STAAR Math Practice Tests", "url": "https://tea.texas.gov/student-assessment/testing/staar/staar-released-test-questions", "source": "TEA.gov"},
+        ],
+        "May": [
+            {"title": "Personal Finance — Grades 6-8", "url": _KA_MATH, "source": "Khan Academy"},
+            {"title": "Payroll, Taxes & Savings — Kids", "url": _YT + "financial+literacy+6th+grade+payroll+taxes", "source": "YouTube"},
+            {"title": "Credit Scores & Budgeting Basics", "url": _YT + "credit+scores+budgeting+middle+school", "source": "YouTube"},
+        ],
+    },
+    "ELA": {
+        "Aug": [
+            {"title": "Grammar Foundations", "url": _KA_HUM + "/grammar", "source": "Khan Academy"},
+            {"title": "Literary Elements — Plot, Character, Theme", "url": _YT + "literary+elements+grade+6+plot+character+theme", "source": "YouTube"},
+            {"title": "Free Reading Passages", "url": "https://www.commonlit.org", "source": "CommonLit"},
+        ],
+        "Sep": [
+            {"title": "Point of View — 1st vs. 3rd Person", "url": _YT + "point+of+view+first+third+person+6th+grade+ELA", "source": "YouTube"},
+            {"title": "Figurative Language (Simile, Metaphor)", "url": _YT + "figurative+language+simile+metaphor+grade+6", "source": "YouTube"},
+            {"title": "Personal Narrative Writing Tips", "url": _YT + "personal+narrative+writing+6th+grade", "source": "YouTube"},
+        ],
+        "Oct": [
+            {"title": "Main Idea & Supporting Details", "url": _KA_HUM, "source": "Khan Academy"},
+            {"title": "Text Structures (Cause/Effect, Compare)", "url": _YT + "text+structures+cause+effect+compare+contrast+6th+grade", "source": "YouTube"},
+            {"title": "Informational Essay Writing", "url": _YT + "informational+essay+writing+6th+grade", "source": "YouTube"},
+        ],
+        "Nov": [
+            {"title": "Evaluating Sources & MLA Citation", "url": _YT + "MLA+citation+grade+6+middle+school", "source": "YouTube"},
+            {"title": "MLA Format Guide", "url": "https://owl.purdue.edu/owl/research_and_citation/mla_style/mla_formatting_and_style_guide/mla_general_format.html", "source": "Purdue OWL"},
+            {"title": "Avoiding Plagiarism", "url": _YT + "avoiding+plagiarism+6th+grade", "source": "YouTube"},
+        ],
+        "Dec": [
+            {"title": "Argument Writing — Claim, Evidence, Reasoning", "url": _YT + "argumentative+writing+claim+evidence+reasoning+middle+school", "source": "YouTube"},
+            {"title": "Evaluating Arguments & Counterclaims", "url": _YT + "counterclaim+rebuttal+argumentative+essay+6th+grade", "source": "YouTube"},
+            {"title": "Connotation vs. Denotation", "url": _YT + "connotation+denotation+6th+grade+ELA", "source": "YouTube"},
+        ],
+        "Jan": [
+            {"title": "Figurative Language in Poetry", "url": _YT + "figurative+language+poetry+6th+grade+personification+alliteration", "source": "YouTube"},
+            {"title": "Poetic Structure — Stanza, Rhyme, Free Verse", "url": _YT + "poetry+elements+stanza+rhyme+scheme+free+verse+grade+6", "source": "YouTube"},
+            {"title": "Drama — Acts, Scenes, Stage Directions", "url": _YT + "drama+elements+acts+scenes+stage+directions+middle+school", "source": "YouTube"},
+        ],
+        "Feb": [
+            {"title": "Making Inferences from Evidence", "url": _YT + "making+inferences+textual+evidence+6th+grade", "source": "YouTube"},
+            {"title": "Context Clues Strategies", "url": _YT + "context+clues+vocabulary+6th+grade+ELA", "source": "YouTube"},
+            {"title": "Reading Comprehension Practice", "url": "https://www.readworks.org", "source": "ReadWorks"},
+        ],
+        "Mar": [
+            {"title": "Argumentative Essay — Full Draft", "url": _YT + "argumentative+essay+writing+full+draft+middle+school", "source": "YouTube"},
+            {"title": "Quote Sandwich — Integrating Evidence", "url": _YT + "quote+sandwich+integrating+evidence+essay", "source": "YouTube"},
+            {"title": "Peer Review & Revision Strategies", "url": _YT + "peer+review+revision+writing+middle+school", "source": "YouTube"},
+        ],
+        "Apr": [
+            {"title": "STAAR Reading — Paired Passages Practice", "url": _YT + "STAAR+reading+paired+passages+6th+grade", "source": "YouTube"},
+            {"title": "STAAR Released Tests (Official)", "url": "https://tea.texas.gov/student-assessment/testing/staar/staar-released-test-questions", "source": "TEA.gov"},
+            {"title": "Multiple-Choice Test Strategies", "url": _YT + "STAAR+reading+test+taking+strategies+eliminate+wrong+answers", "source": "YouTube"},
+        ],
+        "May": [
+            {"title": "Book Recommendations — Grade 6", "url": "https://www.goodreads.com/list/show/43.Best_Books_for_Middle_Schoolers_Grades_6_8_", "source": "Goodreads"},
+            {"title": "Book Review Writing", "url": _YT + "how+to+write+a+book+review+middle+school", "source": "YouTube"},
+            {"title": "Oral Presentation Tips", "url": _YT + "oral+presentation+tips+middle+school+students", "source": "YouTube"},
+        ],
+    },
+    "Science": {
+        "Aug": [
+            {"title": "Scientific Method for Middle School", "url": _YT + "scientific+method+middle+school+hypothesis+variables", "source": "YouTube"},
+            {"title": "Lab Safety Rules & Equipment", "url": _YT + "lab+safety+rules+middle+school+science", "source": "YouTube"},
+            {"title": "Metric System & SI Units", "url": _YT + "metric+system+SI+units+middle+school", "source": "YouTube"},
+        ],
+        "Sep": [
+            {"title": "Crash Course Chemistry — Matter", "url": _YT + "crash+course+chemistry+matter+states", "source": "YouTube (Crash Course)"},
+            {"title": "Physical Properties & States of Matter", "url": _YT + "physical+properties+states+of+matter+6th+grade+science", "source": "YouTube"},
+            {"title": "Matter & Properties", "url": _CK12 + "/physical-science/", "source": "CK-12"},
+        ],
+        "Oct": [
+            {"title": "Physical vs. Chemical Changes", "url": _YT + "physical+vs+chemical+changes+evidence+middle+school", "source": "YouTube"},
+            {"title": "Conservation of Mass", "url": _YT + "conservation+of+mass+law+middle+school+science", "source": "YouTube"},
+            {"title": "Chemical Reactions — Evidence", "url": _YT + "evidence+of+chemical+reactions+combustion+oxidation", "source": "YouTube"},
+        ],
+        "Nov": [
+            {"title": "Crash Course Physics — Newton's Laws", "url": _YT + "crash+course+physics+newton+laws+force+motion", "source": "YouTube (Crash Course)"},
+            {"title": "Speed, Velocity & Acceleration", "url": _YT + "speed+velocity+acceleration+6th+grade+science", "source": "YouTube"},
+            {"title": "Simple Machines", "url": _YT + "simple+machines+lever+pulley+inclined+plane+middle+school", "source": "YouTube"},
+        ],
+        "Dec": [
+            {"title": "Crash Course Earth Science — Plate Tectonics", "url": _YT + "crash+course+earth+science+plate+tectonics", "source": "YouTube (Crash Course)"},
+            {"title": "Earth's Layers & Continental Drift", "url": _YT + "earth+layers+continental+drift+evidence+middle+school", "source": "YouTube"},
+            {"title": "Earthquakes & Volcanoes", "url": _YT + "earthquakes+volcanoes+plate+boundaries+middle+school", "source": "YouTube"},
+        ],
+        "Jan": [
+            {"title": "Rock Cycle Explained", "url": _YT + "rock+cycle+igneous+sedimentary+metamorphic+middle+school", "source": "YouTube"},
+            {"title": "Weathering, Erosion & Deposition", "url": _YT + "weathering+erosion+deposition+6th+grade+science", "source": "YouTube"},
+            {"title": "Geologic Time Scale", "url": _YT + "geologic+time+scale+eons+eras+periods+middle+school", "source": "YouTube"},
+        ],
+        "Feb": [
+            {"title": "Ocean Floor Features & Currents", "url": _YT + "ocean+floor+features+currents+thermohaline+middle+school", "source": "YouTube"},
+            {"title": "Atmosphere Layers", "url": _YT + "atmosphere+layers+troposphere+stratosphere+middle+school", "source": "YouTube"},
+            {"title": "Weather vs. Climate", "url": _YT + "weather+vs+climate+difference+middle+school+science", "source": "YouTube"},
+        ],
+        "Mar": [
+            {"title": "Crash Course Biology — Cells", "url": _YT + "crash+course+biology+cells+organelles", "source": "YouTube (Crash Course)"},
+            {"title": "Cell Organelles — Plant vs. Animal Cells", "url": _YT + "cell+organelles+plant+vs+animal+cell+middle+school", "source": "YouTube"},
+            {"title": "Levels of Organization", "url": _YT + "levels+of+organization+cell+tissue+organ+system+organism", "source": "YouTube"},
+        ],
+        "Apr": [
+            {"title": "Crash Course Ecology — Food Webs", "url": _YT + "crash+course+ecology+food+webs+energy+pyramid", "source": "YouTube (Crash Course)"},
+            {"title": "Biogeochemical Cycles (Water, Carbon, Nitrogen)", "url": _YT + "biogeochemical+cycles+water+carbon+nitrogen+middle+school", "source": "YouTube"},
+            {"title": "Population Dynamics & Carrying Capacity", "url": _YT + "population+dynamics+limiting+factors+carrying+capacity", "source": "YouTube"},
+        ],
+        "May": [
+            {"title": "Human Body Systems Overview", "url": _YT + "human+body+systems+overview+6th+grade+science", "source": "YouTube"},
+            {"title": "Human Impact on Ecosystems", "url": _YT + "human+impact+on+ecosystems+pollution+habitat+loss", "source": "YouTube"},
+            {"title": "Environmental Conservation", "url": _YT + "environmental+conservation+stewardship+middle+school", "source": "YouTube"},
+        ],
+    },
+    "Social Studies": {
+        "Aug": [
+            {"title": "5 Themes of Geography", "url": _YT + "5+themes+of+geography+location+place+region+movement", "source": "YouTube"},
+            {"title": "Types of Maps & Map Elements", "url": _YT + "types+of+maps+physical+political+thematic+middle+school", "source": "YouTube"},
+            {"title": "World History Hub", "url": _KA_WH, "source": "Khan Academy"},
+        ],
+        "Sep": [
+            {"title": "Crash Course — Mesopotamia", "url": _YT + "crash+course+world+history+mesopotamia+sumerians", "source": "YouTube (Crash Course)"},
+            {"title": "Hammurabi's Code & Rule of Law", "url": _YT + "hammurabi+code+rule+of+law+ancient+mesopotamia", "source": "YouTube"},
+            {"title": "Ancient Mesopotamia", "url": _KA_WH + "/ancient-mesopotamia", "source": "Khan Academy"},
+        ],
+        "Oct": [
+            {"title": "Crash Course — Ancient Egypt", "url": _YT + "crash+course+world+history+ancient+egypt", "source": "YouTube (Crash Course)"},
+            {"title": "Ancient Egypt — Society & Religion", "url": _YT + "ancient+egypt+social+structure+pharaoh+religion+6th+grade", "source": "YouTube"},
+            {"title": "Ancient Egypt", "url": _KA_WH + "/ancient-egypt", "source": "Khan Academy"},
+        ],
+        "Nov": [
+            {"title": "Crash Course — Ancient India & China", "url": _YT + "crash+course+world+history+india+china+hinduism+buddhism", "source": "YouTube (Crash Course)"},
+            {"title": "Silk Road Trade Routes", "url": _YT + "silk+road+trade+routes+ancient+china+world+history", "source": "YouTube"},
+            {"title": "Ancient India & China", "url": _KA_WH, "source": "Khan Academy"},
+        ],
+        "Dec": [
+            {"title": "Crash Course — World Religions", "url": _YT + "crash+course+world+history+world+religions+judaism+christianity+islam", "source": "YouTube (Crash Course)"},
+            {"title": "Comparing World Religions", "url": _YT + "comparing+world+religions+origins+beliefs+practices+6th+grade", "source": "YouTube"},
+            {"title": "World Religions Overview", "url": _KA_WH, "source": "Khan Academy"},
+        ],
+        "Jan": [
+            {"title": "Crash Course — Ancient Greece", "url": _YT + "crash+course+world+history+ancient+greece+democracy", "source": "YouTube (Crash Course)"},
+            {"title": "Athens vs. Sparta — Government & Culture", "url": _YT + "athens+vs+sparta+government+culture+6th+grade", "source": "YouTube"},
+            {"title": "Ancient Greece", "url": _KA_WH + "/ancient-greece", "source": "Khan Academy"},
+        ],
+        "Feb": [
+            {"title": "Crash Course — Ancient Rome", "url": _YT + "crash+course+world+history+ancient+rome+republic+empire", "source": "YouTube (Crash Course)"},
+            {"title": "Roman Republic vs. Empire", "url": _YT + "roman+republic+empire+julius+caesar+augustus+6th+grade", "source": "YouTube"},
+            {"title": "Ancient Rome", "url": _KA_WH + "/ancient-rome", "source": "Khan Academy"},
+        ],
+        "Mar": [
+            {"title": "Crash Course — Middle Ages", "url": _YT + "crash+course+world+history+middle+ages+feudal+system", "source": "YouTube (Crash Course)"},
+            {"title": "Byzantine Empire & Islamic Golden Age", "url": _YT + "byzantine+empire+islamic+golden+age+world+history", "source": "YouTube"},
+            {"title": "Medieval Europe & the Crusades", "url": _YT + "medieval+europe+crusades+feudal+system+middle+school", "source": "YouTube"},
+        ],
+        "Apr": [
+            {"title": "Crash Course — Age of Exploration", "url": _YT + "crash+course+world+history+age+of+exploration+columbus", "source": "YouTube (Crash Course)"},
+            {"title": "Columbian Exchange", "url": _YT + "columbian+exchange+foods+diseases+plants+animals+6th+grade", "source": "YouTube"},
+            {"title": "Maya, Aztec & Inca Civilizations", "url": _YT + "maya+aztec+inca+early+americas+civilization+6th+grade", "source": "YouTube"},
+        ],
+        "May": [
+            {"title": "World History Review — Crash Course", "url": _YT + "crash+course+world+history+review+ancient+civilizations", "source": "YouTube (Crash Course)"},
+            {"title": "Comparing Ancient Civilizations", "url": _YT + "comparing+ancient+civilizations+government+economy+culture", "source": "YouTube"},
+            {"title": "Social Studies Review Games", "url": "https://quizlet.com/subject/ancient-civilizations/", "source": "Quizlet"},
+        ],
+    },
+}

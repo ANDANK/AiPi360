@@ -86,8 +86,10 @@ with child_tab1:
             cal_section, curr_section = st.tabs(["📅 School Calendar", "📚 TEKS Curriculum"])
 
             with curr_section:
+                import html as _html
                 from services.g6_teks import (
-                    MONTHLY_PACING, SUBJECT_STYLE, STAAR_INFO, TEA_CODES
+                    MONTHLY_PACING, SUBJECT_STYLE, STAAR_INFO, TEA_CODES,
+                    STAAR_STRAND_MAP, MONTHLY_RESOURCES, month_key,
                 )
 
                 st.markdown("""
@@ -110,6 +112,14 @@ with child_tab1:
                 subjects = list(MONTHLY_PACING.keys())
                 months_list = [m for m, _ in MONTHLY_PACING["Math"]]
 
+                def _strip_topic_prefix(t: str) -> str:
+                    """Strip leading ⚠️ (2 codepoints) or ★ (1 codepoint) + space."""
+                    if t.startswith("⚠️"):
+                        return t[2:].lstrip(" ")
+                    if t.startswith("★"):
+                        return t[1:].lstrip(" ")
+                    return t
+
                 if view_mode == "📅 By Month":
                     # Month selector
                     month_labels = [m.split("\n")[0] for m in months_list]
@@ -120,6 +130,7 @@ with child_tab1:
                         key="teks_month_slider",
                     )
                     sel_month = months_list[sel_month_idx]
+                    mk = month_key(sel_month)
 
                     # Show 4 subject cards side by side (2x2 grid)
                     st.markdown(f"##### {sel_month.replace(chr(10), ' — ')}")
@@ -131,30 +142,64 @@ with child_tab1:
                         topics = next(
                             (t for m, t in MONTHLY_PACING[subj] if m == sel_month), []
                         )
-                        topic_html = "".join(
-                            f"""<div style="padding:4px 0;border-bottom:1px solid #f1f5f9;
-                                font-size:12.5px;color:{'#b45309' if t.startswith(('★','⚠️')) else '#1e293b'};">
-                              {'⚠️' if t.startswith('⚠️') else ('★' if t.startswith('★') else '•')}
-                              {t.lstrip('⚠️★ ')}
-                            </div>"""
-                            for t in topics
-                        )
+                        # Build topic rows with escaped text
+                        topic_html = ""
+                        for t in topics:
+                            is_warn = t.startswith("⚠️")
+                            is_star = t.startswith("★")
+                            icon   = "⚠️" if is_warn else ("★" if is_star else "•")
+                            color  = "#b45309" if (is_warn or is_star) else "#1e293b"
+                            text   = _html.escape(_strip_topic_prefix(t))
+                            topic_html += (
+                                f'<div style="padding:4px 0;border-bottom:1px solid #f1f5f9;'
+                                f'font-size:12.5px;color:{color};">'
+                                f'{icon} {text}</div>'
+                            )
+                        # STAAR / TEA strand badge
+                        strand = STAAR_STRAND_MAP.get(subj, {}).get(mk, "")
+                        strand_badge = ""
+                        if strand:
+                            is_staar = subj in ("Math", "ELA")
+                            b_bg  = style["tag_bg"]
+                            b_col = style["tag_color"]
+                            label = ("★ STAAR: " if is_staar else "📋 TEA: ") + strand
+                            strand_badge = (
+                                f'<div style="font-size:10px;color:{b_col};background:{b_bg};'
+                                f'border-radius:4px;padding:2px 7px;display:inline-block;'
+                                f'margin:4px 0 6px 0;font-weight:600;">'
+                                f'{_html.escape(label)}</div>'
+                            )
                         col.markdown(
                             f"""<div style="background:{style['bg']};border:1px solid {style['border']};
                                 border-radius:12px;padding:14px;margin-bottom:12px;">
                               <div style="font-size:13px;font-weight:700;color:{style['border']};
-                                   margin-bottom:8px;">{style['icon']} {subj}</div>
+                                   margin-bottom:6px;">{style['icon']} {subj}</div>
                               <div style="font-size:10px;color:{style['tag_color']};
                                    background:{style['tag_bg']};border-radius:6px;
-                                   padding:2px 8px;display:inline-block;margin-bottom:8px;">
+                                   padding:2px 8px;display:inline-block;margin-bottom:4px;">
                                 {TEA_CODES[subj]}
                               </div>
+                              {strand_badge}
                               {topic_html}
                             </div>""",
                             unsafe_allow_html=True,
                         )
 
                 else:  # By Subject
+                    _SRC_COLORS = {
+                        "Khan Academy":          ("#e0f2fe", "#0369a1", "🎓"),
+                        "YouTube":               ("#fee2e2", "#b91c1c", "▶"),
+                        "YouTube (Crash Course)":("#fee2e2", "#b91c1c", "▶"),
+                        "TEA.gov":               ("#f0fdf4", "#15803d", "📋"),
+                        "IXL":                   ("#fdf4ff", "#9333ea", "✏️"),
+                        "CK-12":                 ("#f0fdf4", "#15803d", "📗"),
+                        "CommonLit":             ("#fdf4ff", "#9333ea", "📖"),
+                        "ReadWorks":             ("#fdf4ff", "#9333ea", "📖"),
+                        "Purdue OWL":            ("#fefce8", "#92400e", "🦉"),
+                        "Goodreads":             ("#fefce8", "#92400e", "📚"),
+                        "Quizlet":               ("#e0f2fe", "#0369a1", "🃏"),
+                    }
+
                     subj_tabs = st.tabs([
                         f"{SUBJECT_STYLE[s]['icon']} {s}" for s in subjects
                     ])
@@ -170,24 +215,66 @@ with child_tab1:
                             )
                             for month_label, topics in MONTHLY_PACING[subj]:
                                 hdr = month_label.replace("\n", " — ")
+                                mk  = month_key(month_label)
+                                strand = STAAR_STRAND_MAP.get(subj, {}).get(mk, "")
                                 with st.expander(hdr, expanded=False):
+                                    # Strand badge at top
+                                    if strand:
+                                        is_staar = subj in ("Math", "ELA")
+                                        label = ("★ STAAR: " if is_staar else "📋 TEA TEKS: ") + strand
+                                        st.markdown(
+                                            f'<div style="font-size:10.5px;color:{style["tag_color"]};'
+                                            f'background:{style["tag_bg"]};border-radius:4px;'
+                                            f'padding:2px 8px;display:inline-block;margin-bottom:8px;'
+                                            f'font-weight:600;">{_html.escape(label)}</div>',
+                                            unsafe_allow_html=True,
+                                        )
+                                    # Topics
                                     for t in topics:
                                         if t.startswith("★"):
+                                            safe = _html.escape(_strip_topic_prefix(t))
                                             st.markdown(
                                                 f'<div style="background:#fef9c3;border-left:3px solid #ca8a04;'
                                                 f'border-radius:6px;padding:6px 10px;margin:3px 0;'
-                                                f'font-size:13px;font-weight:600;">⭐ {t.lstrip("★ ")}</div>',
+                                                f'font-size:13px;font-weight:600;">⭐ {safe}</div>',
                                                 unsafe_allow_html=True,
                                             )
                                         elif t.startswith("⚠️"):
+                                            safe = _html.escape(_strip_topic_prefix(t))
                                             st.markdown(
                                                 f'<div style="background:#fff7ed;border-left:3px solid #ea580c;'
                                                 f'border-radius:6px;padding:5px 10px;margin:3px 0;'
-                                                f'font-size:12px;color:#9a3412;">{t}</div>',
+                                                f'font-size:12px;color:#9a3412;">⚠️ {safe}</div>',
                                                 unsafe_allow_html=True,
                                             )
                                         else:
                                             st.markdown(f"• {t}")
+                                    # Resources
+                                    resources = MONTHLY_RESOURCES.get(subj, {}).get(mk, [])
+                                    if resources:
+                                        st.markdown(
+                                            '<div style="margin-top:10px;padding-top:8px;'
+                                            'border-top:1px solid #e2e8f0;font-size:11px;'
+                                            'font-weight:700;color:#475569;margin-bottom:4px;">'
+                                            '📌 Resources</div>',
+                                            unsafe_allow_html=True,
+                                        )
+                                        chips = ""
+                                        for r in resources:
+                                            src = r.get("source", "")
+                                            bg, fg, icon = _SRC_COLORS.get(src, ("#f1f5f9", "#334155", "🔗"))
+                                            t_safe = _html.escape(r["title"])
+                                            chips += (
+                                                f'<a href="{r["url"]}" target="_blank" '
+                                                f'style="display:inline-block;background:{bg};color:{fg};'
+                                                f'border-radius:20px;padding:3px 10px;margin:3px 4px 3px 0;'
+                                                f'font-size:11.5px;text-decoration:none;font-weight:500;">'
+                                                f'{icon} {t_safe}</a>'
+                                            )
+                                        st.markdown(
+                                            f'<div style="line-height:2;">{chips}</div>',
+                                            unsafe_allow_html=True,
+                                        )
 
                 # ── STAAR info box ────────────────────────────────────────────
                 st.markdown("---")
