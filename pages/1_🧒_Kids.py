@@ -65,7 +65,7 @@ with child_tab1:
         sub1, sub2, sub3, sub4 = st.tabs(["📅 Syllabus & Plan", "🎯 STAAR Prep", "🔢 Math Rocks", "🌟 Planning Ahead"])
 
         with sub1:
-            st.markdown("#### 📅 FISD School Calendar — Wortham Intermediate")
+            st.markdown("#### 📅 Syllabus & Plan — Grade 6 at Wortham Intermediate")
 
             # ── School info strip ─────────────────────────────────────────────
             st.markdown("""
@@ -79,135 +79,263 @@ with child_tab1:
   <div><b>🗓️ First Day</b><br>August 12, 2026</div>
 </div>""", unsafe_allow_html=True)
 
-            # ── Calendar display ──────────────────────────────────────────────
-            from services.fisd_calendar import (
-                get_events, upcoming_events, no_school_days,
-                seed_baseline, TYPE_STYLE
-            )
+            # ── Two sections: Calendar + Curriculum ───────────────────────────
+            cal_section, curr_section = st.tabs(["📅 School Calendar", "📚 TEKS Curriculum"])
 
-            cal_tab1, cal_tab2, cal_tab3, cal_tab4 = st.tabs([
-                "📆 Upcoming", "🔴 No School Days", "📋 Full Calendar", "➕ Add / Manage"
-            ])
+            with curr_section:
+                from services.g6_teks import (
+                    MONTHLY_PACING, SUBJECT_STYLE, STAAR_INFO, TEA_CODES
+                )
 
-            with cal_tab1:
-                hdr, btn_col = st.columns([5,1])
-                with hdr:
-                    st.markdown("##### 📆 Next 30 Days")
-                with btn_col:
-                    if st.button("🔄 Refresh", key="fisd_refresh"):
-                        read_sheet.clear() if hasattr(read_sheet, "clear") else None
-                        st.rerun()
+                st.markdown("""
+<div style="background:#fefce8;border:1px solid #fde047;border-radius:10px;
+     padding:10px 16px;margin-bottom:16px;font-size:13px;">
+  <b>📋 Texas Essential Knowledge and Skills (TEKS)</b> — Grade 6 · FISD 2026-2027<br>
+  <span style="color:#713f12;">Monthly pacing is a guide; actual classroom pace may vary by teacher.
+  Source: Texas Education Agency official TEKS standards.</span>
+</div>""", unsafe_allow_html=True)
 
-                try:
-                    up_df = upcoming_events(days=30)
-                    if up_df.empty:
-                        # Auto-seed baseline on first visit
-                        seeded = seed_baseline()
-                        if seeded:
-                            st.success(f"✅ Seeded {seeded} baseline FISD dates. Refresh to view.")
-                            st.rerun()
-                        else:
-                            st.info("No upcoming events. Calendar may be loading.")
-                    else:
-                        today_d = date.today()
-                        for _, r in up_df.iterrows():
-                            etype  = str(r.get("type","Other"))
-                            bg, color, icon = TYPE_STYLE.get(etype, TYPE_STYLE["Other"])
-                            delta  = (r["date"] - today_d).days
-                            when   = "Today" if delta==0 else (f"Tomorrow" if delta==1 else f"In {delta}d — {r['date'].strftime('%a %b %d')}")
-                            source = r.get("source","")
-                            est    = " *(est.)*" if "estimated" in str(source) else ""
+                # ── View toggle ───────────────────────────────────────────────
+                view_mode = st.radio(
+                    "View",
+                    ["📅 By Month", "📚 By Subject"],
+                    horizontal=True,
+                    key="teks_view_mode",
+                    label_visibility="collapsed",
+                )
+
+                subjects = list(MONTHLY_PACING.keys())
+                months_list = [m for m, _ in MONTHLY_PACING["Math"]]
+
+                if view_mode == "📅 By Month":
+                    # Month selector
+                    month_labels = [m.split("\n")[0] for m in months_list]
+                    sel_month_idx = st.select_slider(
+                        "Select Month",
+                        options=list(range(len(month_labels))),
+                        format_func=lambda i: month_labels[i],
+                        key="teks_month_slider",
+                    )
+                    sel_month = months_list[sel_month_idx]
+
+                    # Show 4 subject cards side by side (2x2 grid)
+                    st.markdown(f"##### {sel_month.replace(chr(10), ' — ')}")
+                    col_a, col_b = st.columns(2)
+                    for idx, subj in enumerate(subjects):
+                        col = col_a if idx % 2 == 0 else col_b
+                        style = SUBJECT_STYLE[subj]
+                        # Find topics for this month
+                        topics = next(
+                            (t for m, t in MONTHLY_PACING[subj] if m == sel_month), []
+                        )
+                        topic_html = "".join(
+                            f"""<div style="padding:4px 0;border-bottom:1px solid #f1f5f9;
+                                font-size:12.5px;color:{'#b45309' if t.startswith(('★','⚠️')) else '#1e293b'};">
+                              {'⚠️' if t.startswith('⚠️') else ('★' if t.startswith('★') else '•')}
+                              {t.lstrip('⚠️★ ')}
+                            </div>"""
+                            for t in topics
+                        )
+                        col.markdown(
+                            f"""<div style="background:{style['bg']};border:1px solid {style['border']};
+                                border-radius:12px;padding:14px;margin-bottom:12px;">
+                              <div style="font-size:13px;font-weight:700;color:{style['border']};
+                                   margin-bottom:8px;">{style['icon']} {subj}</div>
+                              <div style="font-size:10px;color:{style['tag_color']};
+                                   background:{style['tag_bg']};border-radius:6px;
+                                   padding:2px 8px;display:inline-block;margin-bottom:8px;">
+                                {TEA_CODES[subj]}
+                              </div>
+                              {topic_html}
+                            </div>""",
+                            unsafe_allow_html=True,
+                        )
+
+                else:  # By Subject
+                    subj_tabs = st.tabs([
+                        f"{SUBJECT_STYLE[s]['icon']} {s}" for s in subjects
+                    ])
+                    for tab, subj in zip(subj_tabs, subjects):
+                        with tab:
+                            style = SUBJECT_STYLE[subj]
                             st.markdown(
-                                f"""<div style="background:{bg};border-left:4px solid {color};
-                                    border-radius:8px;padding:9px 14px;margin-bottom:5px;
-                                    display:flex;align-items:center;gap:14px;">
-                                  <span style="min-width:130px;font-size:12px;color:{color};font-weight:600;">{icon} {when}</span>
-                                  <span style="font-size:13px;font-weight:600;color:#0f172a;">{r['event']}{est}</span>
-                                  <span style="margin-left:auto;font-size:11px;color:#94a3b8;">{etype}</span>
-                                </div>""",
+                                f'<div style="font-size:11px;color:{style["tag_color"]};'
+                                f'background:{style["tag_bg"]};border-radius:6px;'
+                                f'padding:3px 10px;display:inline-block;margin-bottom:12px;">'
+                                f'{TEA_CODES[subj]}</div>',
                                 unsafe_allow_html=True,
                             )
-                except Exception as e:
-                    st.error(f"Could not load calendar: {e}")
+                            for month_label, topics in MONTHLY_PACING[subj]:
+                                hdr = month_label.replace("\n", " — ")
+                                with st.expander(hdr, expanded=False):
+                                    for t in topics:
+                                        if t.startswith("★"):
+                                            st.markdown(
+                                                f'<div style="background:#fef9c3;border-left:3px solid #ca8a04;'
+                                                f'border-radius:6px;padding:6px 10px;margin:3px 0;'
+                                                f'font-size:13px;font-weight:600;">⭐ {t.lstrip("★ ")}</div>',
+                                                unsafe_allow_html=True,
+                                            )
+                                        elif t.startswith("⚠️"):
+                                            st.markdown(
+                                                f'<div style="background:#fff7ed;border-left:3px solid #ea580c;'
+                                                f'border-radius:6px;padding:5px 10px;margin:3px 0;'
+                                                f'font-size:12px;color:#9a3412;">{t}</div>',
+                                                unsafe_allow_html=True,
+                                            )
+                                        else:
+                                            st.markdown(f"• {t}")
 
-            with cal_tab2:
-                st.markdown("##### 🔴 All No-School Days 2026-2027")
-                try:
-                    ns_df = no_school_days()
-                    if ns_df.empty:
-                        seed_baseline()
-                        st.rerun()
-                    else:
-                        ns_df["date"] = pd.to_datetime(ns_df["date"], errors="coerce").dt.date
-                        ns_df["day"]  = pd.to_datetime(ns_df["date"].astype(str)).dt.strftime("%A")
-                        st.dataframe(
-                            ns_df[["date","day","event","type","source"]].rename(
-                                columns={"date":"Date","day":"Day","event":"Event",
-                                         "type":"Type","source":"Source"}
-                            ),
-                            use_container_width=True, hide_index=True,
-                            column_config={"Date": st.column_config.DateColumn(format="MMM DD, YYYY")},
-                        )
-                        st.caption(f"*(Est.) = estimated from standard FISD pattern — verify at friscoisd.org*")
-                except Exception as e:
-                    st.error(f"Could not load: {e}")
+                # ── STAAR info box ────────────────────────────────────────────
+                st.markdown("---")
+                st.markdown("##### ★ STAAR Tested Subjects — Grade 6")
+                scol1, scol2 = st.columns(2)
+                for col, (test, info) in zip([scol1, scol2], STAAR_INFO.items()):
+                    col.markdown(
+                        f"""<div style="background:#fefce8;border:1px solid #fde047;
+                            border-radius:12px;padding:14px;height:100%;">
+                          <div style="font-weight:700;font-size:13px;margin-bottom:6px;">
+                            ★ {test} STAAR</div>
+                          <div style="font-size:12px;color:#713f12;margin-bottom:6px;">
+                            📅 {info['estimated_date']}</div>
+                          <div style="font-size:12px;color:#78350f;margin-bottom:6px;">
+                            📋 {info['format']}</div>
+                          <div style="font-size:11px;font-weight:600;color:#92400e;margin-bottom:4px;">
+                            Key Readiness Standards:</div>
+                          {''.join(f'<div style="font-size:11px;color:#7c2d12;padding:2px 0;">• {s}</div>' for s in info['key_readiness_standards'])}
+                        </div>""",
+                        unsafe_allow_html=True,
+                    )
 
-            with cal_tab3:
-                st.markdown("##### 📋 Full 2026-2027 Calendar")
-                try:
-                    full_df = get_events("2026-2027")
-                    if full_df.empty:
-                        st.info("No events yet.")
-                    else:
-                        full_df["date"] = pd.to_datetime(full_df["date"], errors="coerce").dt.date
-                        type_filter = st.multiselect(
-                            "Filter by type",
-                            options=list(TYPE_STYLE.keys()),
-                            default=list(TYPE_STYLE.keys()),
-                            key="fisd_type_filter",
-                        )
-                        filtered = full_df[full_df["type"].isin(type_filter)].sort_values("date")
-                        st.dataframe(
-                            filtered[["date","event","type","source"]],
-                            use_container_width=True, hide_index=True,
-                            column_config={"date": st.column_config.DateColumn(format="MMM DD, YYYY")},
-                        )
-                except Exception as e:
-                    st.error(f"Could not load: {e}")
+            with cal_section:
+                # ── Calendar display ──────────────────────────────────────────
+                from services.fisd_calendar import (
+                    get_events, upcoming_events, no_school_days,
+                    seed_baseline, TYPE_STYLE
+                )
 
-            with cal_tab4:
-                st.markdown("##### ➕ Add Event Manually")
-                with st.form("fisd_add_event"):
-                    c1, c2, c3 = st.columns(3)
-                    with c1: ev_name = st.text_input("Event Name")
-                    with c2: ev_date = st.date_input("Date", value=date.today())
-                    with c3: ev_type = st.selectbox("Type", list(TYPE_STYLE.keys()))
-                    if st.form_submit_button("Add Event", type="primary"):
-                        if ev_name:
-                            from services.fisd_calendar import upsert_event
-                            upsert_event(ev_date.isoformat(), ev_name, ev_type, "manual")
-                            st.success(f"✅ Added: {ev_name}")
+                cal_tab1, cal_tab2, cal_tab3, cal_tab4 = st.tabs([
+                    "📆 Upcoming", "🔴 No School Days", "📋 Full Calendar", "➕ Add / Manage"
+                ])
+
+                with cal_tab1:
+                    hdr, btn_col = st.columns([5,1])
+                    with hdr:
+                        st.markdown("##### 📆 Next 30 Days")
+                    with btn_col:
+                        if st.button("🔄 Refresh", key="fisd_refresh"):
+                            read_sheet.clear() if hasattr(read_sheet, "clear") else None
                             st.rerun()
 
-                st.markdown("---")
-                st.markdown("##### 🔄 Force Re-seed Baseline Dates")
-                st.caption("Use this to reload the standard FISD 2026-2027 holiday pattern.")
-                if st.button("Re-seed baseline dates", type="secondary"):
-                    n = seed_baseline(force=True)
-                    st.success(f"✅ Re-seeded {n} baseline events.")
-                    st.rerun()
+                    try:
+                        up_df = upcoming_events(days=30)
+                        if up_df.empty:
+                            seeded = seed_baseline()
+                            if seeded:
+                                st.success(f"✅ Seeded {seeded} baseline FISD dates. Refresh to view.")
+                                st.rerun()
+                            else:
+                                st.info("No upcoming events. Calendar may be loading.")
+                        else:
+                            today_d = date.today()
+                            for _, r in up_df.iterrows():
+                                etype  = str(r.get("type","Other"))
+                                bg, color, icon = TYPE_STYLE.get(etype, TYPE_STYLE["Other"])
+                                delta  = (r["date"] - today_d).days
+                                when   = "Today" if delta==0 else (f"Tomorrow" if delta==1 else f"In {delta}d — {r['date'].strftime('%a %b %d')}")
+                                source = r.get("source","")
+                                est    = " *(est.)*" if "estimated" in str(source) else ""
+                                st.markdown(
+                                    f"""<div style="background:{bg};border-left:4px solid {color};
+                                        border-radius:8px;padding:9px 14px;margin-bottom:5px;
+                                        display:flex;align-items:center;gap:14px;">
+                                      <span style="min-width:130px;font-size:12px;color:{color};font-weight:600;">{icon} {when}</span>
+                                      <span style="font-size:13px;font-weight:600;color:#0f172a;">{r['event']}{est}</span>
+                                      <span style="margin-left:auto;font-size:11px;color:#94a3b8;">{etype}</span>
+                                    </div>""",
+                                    unsafe_allow_html=True,
+                                )
+                    except Exception as e:
+                        st.error(f"Could not load calendar: {e}")
 
-                st.markdown("---")
-                st.markdown("##### 🔔 Add FISD Reminder")
-                with st.form("school_rem_form"):
-                    r_title = st.text_input("Event / Reminder")
-                    r_date  = st.date_input("Reminder Date", value=date.today())
-                    r_msg   = st.text_area("Details", height=60)
-                    if st.form_submit_button("➕ Add Reminder", type="primary"):
-                        from services.reminders import add as add_rem
-                        add_rem("fisd", r_title, r_msg, r_date)
-                        st.success("Reminder added!")
+                with cal_tab2:
+                    st.markdown("##### 🔴 All No-School Days 2026-2027")
+                    try:
+                        ns_df = no_school_days()
+                        if ns_df.empty:
+                            seed_baseline()
+                            st.rerun()
+                        else:
+                            ns_df["date"] = pd.to_datetime(ns_df["date"], errors="coerce").dt.date
+                            ns_df["day"]  = pd.to_datetime(ns_df["date"].astype(str)).dt.strftime("%A")
+                            st.dataframe(
+                                ns_df[["date","day","event","type","source"]].rename(
+                                    columns={"date":"Date","day":"Day","event":"Event",
+                                             "type":"Type","source":"Source"}
+                                ),
+                                use_container_width=True, hide_index=True,
+                                column_config={"Date": st.column_config.DateColumn(format="MMM DD, YYYY")},
+                            )
+                            st.caption("*(Est.) = estimated from standard FISD pattern — verify at friscoisd.org*")
+                    except Exception as e:
+                        st.error(f"Could not load: {e}")
+
+                with cal_tab3:
+                    st.markdown("##### 📋 Full 2026-2027 Calendar")
+                    try:
+                        full_df = get_events("2026-2027")
+                        if full_df.empty:
+                            st.info("No events yet.")
+                        else:
+                            full_df["date"] = pd.to_datetime(full_df["date"], errors="coerce").dt.date
+                            type_filter = st.multiselect(
+                                "Filter by type",
+                                options=list(TYPE_STYLE.keys()),
+                                default=list(TYPE_STYLE.keys()),
+                                key="fisd_type_filter",
+                            )
+                            filtered = full_df[full_df["type"].isin(type_filter)].sort_values("date")
+                            st.dataframe(
+                                filtered[["date","event","type","source"]],
+                                use_container_width=True, hide_index=True,
+                                column_config={"date": st.column_config.DateColumn(format="MMM DD, YYYY")},
+                            )
+                    except Exception as e:
+                        st.error(f"Could not load: {e}")
+
+                with cal_tab4:
+                    st.markdown("##### ➕ Add Event Manually")
+                    with st.form("fisd_add_event"):
+                        c1, c2, c3 = st.columns(3)
+                        with c1: ev_name = st.text_input("Event Name")
+                        with c2: ev_date = st.date_input("Date", value=date.today())
+                        with c3: ev_type = st.selectbox("Type", list(TYPE_STYLE.keys()))
+                        if st.form_submit_button("Add Event", type="primary"):
+                            if ev_name:
+                                from services.fisd_calendar import upsert_event
+                                upsert_event(ev_date.isoformat(), ev_name, ev_type, "manual")
+                                st.success(f"✅ Added: {ev_name}")
+                                st.rerun()
+
+                    st.markdown("---")
+                    st.markdown("##### 🔄 Force Re-seed Baseline Dates")
+                    st.caption("Use this to reload the standard FISD 2026-2027 holiday pattern.")
+                    if st.button("Re-seed baseline dates", type="secondary"):
+                        n = seed_baseline(force=True)
+                        st.success(f"✅ Re-seeded {n} baseline events.")
                         st.rerun()
+
+                    st.markdown("---")
+                    st.markdown("##### 🔔 Add FISD Reminder")
+                    with st.form("school_rem_form"):
+                        r_title = st.text_input("Event / Reminder")
+                        r_date  = st.date_input("Reminder Date", value=date.today())
+                        r_msg   = st.text_area("Details", height=60)
+                        if st.form_submit_button("➕ Add Reminder", type="primary"):
+                            from services.reminders import add as add_rem
+                            add_rem("fisd", r_title, r_msg, r_date)
+                            st.success("Reminder added!")
+                            st.rerun()
 
         with sub2:
             st.markdown("#### 🎯 STAAR Exam Preparation")
