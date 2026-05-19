@@ -4,7 +4,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
 import streamlit as st
 import pandas as pd
-from datetime import date, timedelta
+from datetime import date, timedelta, datetime as _dt
 
 st.set_page_config(page_title="AiPi360 · Kids", page_icon="🧒", layout="wide")
 
@@ -13,8 +13,8 @@ require_auth()
 
 from components.metric_card import section_header, coming_soon
 from components.reminder_banner import render_section_reminders
-from services.kids import (list_classes, add_class, delete_class, toggle_pause,
-                           monthly_cost, upcoming_sessions,
+from services.kids import (list_classes, add_class, update_class, delete_class,
+                           toggle_pause, monthly_cost, upcoming_sessions,
                            FREQUENCIES, FEE_FREQUENCIES, DAYS_OF_WEEK)
 from backend.gsheet import read_sheet
 
@@ -713,19 +713,27 @@ Total: ~6 presentations per school year.
         cl1, cl2, cl3 = st.tabs(["📋 Classes List", "📅 Upcoming Schedule", "➕ Add Class"])
 
         with cl1:
+            def _parse_time(s):
+                for fmt in ("%I:%M %p", "%H:%M"):
+                    try:
+                        return _dt.strptime(str(s).strip(), fmt).time()
+                    except (ValueError, TypeError):
+                        pass
+                return None
+
             if not cls_df.empty:
                 # Header row
-                hc = st.columns([2.2, 1.8, 1.6, 1.4, 1.2, 0.9, 0.9])
-                for col, lbl in zip(hc, ["Class / Provider", "Days", "Time", "Fee", "Meets", "", ""]):
+                hc = st.columns([2.2, 1.8, 1.6, 1.4, 1.2, 0.75, 0.75, 0.75])
+                for col, lbl in zip(hc, ["Class / Provider", "Days", "Time", "Fee", "Meets", "", "", ""]):
                     col.markdown(f"<span style='font-size:11px;font-weight:600;color:#64748b;'>{lbl}</span>",
                                  unsafe_allow_html=True)
                 st.markdown("<hr style='margin:4px 0 8px'>", unsafe_allow_html=True)
 
                 for _, cls in cls_df.iterrows():
-                    is_paused = str(cls.get("paused", "FALSE")).upper() == "TRUE"
-                    row_bg    = "#fafafa" if is_paused else "#fff"
-                    row_op    = "0.55" if is_paused else "1"
-                    c1, c2, c3, c4, c5, c6, c7 = st.columns([2.2, 1.8, 1.6, 1.4, 1.2, 0.9, 0.9])
+                    is_paused  = str(cls.get("paused", "FALSE")).upper() == "TRUE"
+                    row_op     = "0.55" if is_paused else "1"
+                    is_editing = st.session_state.get("son_edit_id") == cls["id"]
+                    c1, c2, c3, c4, c5, c6, c7, c8 = st.columns([2.2, 1.8, 1.6, 1.4, 1.2, 0.75, 0.75, 0.75])
                     with c1:
                         badge = ('<span style="background:#fef9c3;color:#854d0e;font-size:10px;'
                                  'border-radius:6px;padding:1px 6px;margin-left:4px;">⏸ paused</span>'
@@ -759,18 +767,85 @@ Total: ~6 presentations per school year.
                         st.markdown(f'<div style="font-size:12px;opacity:{row_op}">'
                                     f'{cls.get("frequency","")}</div>', unsafe_allow_html=True)
                     with c6:
-                        lbl = "▶ Resume" if is_paused else "⏸ Pause"
-                        if st.button(lbl, key=f"pause_son_{cls['id']}",
+                        plbl = "▶" if is_paused else "⏸"
+                        if st.button(plbl, key=f"pause_son_{cls['id']}",
+                                     help="Resume" if is_paused else "Pause",
                                      use_container_width=True):
                             toggle_pause(cls["id"])
                             st.rerun()
                     with c7:
+                        elbl = "✕" if is_editing else "✏️"
+                        if st.button(elbl, key=f"edit_son_{cls['id']}",
+                                     help="Cancel edit" if is_editing else "Modify",
+                                     use_container_width=True):
+                            st.session_state["son_edit_id"] = None if is_editing else cls["id"]
+                            st.rerun()
+                    with c8:
                         if st.button("🗑️", key=f"del_son_{cls['id']}",
-                                     help="Delete class", use_container_width=True):
+                                     help="Delete", use_container_width=True):
                             delete_class(cls["id"])
+                            st.session_state.pop("son_edit_id", None)
                             st.rerun()
                     st.markdown("<hr style='margin:2px 0;border-color:#f1f5f9'>",
                                 unsafe_allow_html=True)
+
+                    # ── Inline edit form ──────────────────────────────────────
+                    if is_editing:
+                        st.markdown(
+                            f'<div style="background:#eff6ff;border:1px solid #93c5fd;'
+                            f'border-radius:10px;padding:14px 18px;margin-bottom:10px;">'
+                            f'<b style="font-size:13px;">✏️ Editing: {cls["name"]}</b></div>',
+                            unsafe_allow_html=True)
+                        with st.form(f"edit_son_{cls['id']}_form"):
+                            ec1, ec2 = st.columns(2)
+                            with ec1:
+                                e_name  = st.text_input("Class Name", value=str(cls.get("name","")))
+                                e_prov  = st.text_input("Provider", value=str(cls.get("provider","")))
+                                e_loc   = st.text_input("Location", value=str(cls.get("location","")))
+                                try:
+                                    e_start_val = date.fromisoformat(str(cls.get("start_date", date.today())))
+                                except (ValueError, TypeError):
+                                    e_start_val = date.today()
+                                e_start = st.date_input("Start Date", value=e_start_val, key=f"son_esd_{cls['id']}")
+                            with ec2:
+                                e_cost  = st.number_input("Fee Amount ($)",
+                                                          value=float(cls.get("cost",0) or 0),
+                                                          min_value=0.0, step=5.0)
+                                cur_ff  = str(cls.get("fee_frequency",""))
+                                e_feef  = st.selectbox("Fee Frequency", FEE_FREQUENCIES,
+                                                       index=FEE_FREQUENCIES.index(cur_ff) if cur_ff in FEE_FREQUENCIES else 0)
+                                cur_fr  = str(cls.get("frequency",""))
+                                e_freq  = st.selectbox("Class Meets", FREQUENCIES,
+                                                       index=FREQUENCIES.index(cur_fr) if cur_fr in FREQUENCIES else 0)
+                            cur_days   = [d.strip() for d in str(cls.get("days","")).split(",") if d.strip() in DAYS_OF_WEEK]
+                            e_days     = st.multiselect("Class Days", DAYS_OF_WEEK, default=cur_days,
+                                                        key=f"son_edays_{cls['id']}")
+                            et1, et2   = st.columns(2)
+                            with et1:
+                                e_ts = st.time_input("Start Time", value=_parse_time(cls.get("time_start")),
+                                                     key=f"son_ets_{cls['id']}")
+                            with et2:
+                                e_te = st.time_input("End Time", value=_parse_time(cls.get("time_end")),
+                                                     key=f"son_ete_{cls['id']}")
+                            sc1, sc2 = st.columns(2)
+                            with sc1:
+                                do_save   = st.form_submit_button("💾 Save Changes", type="primary",
+                                                                  use_container_width=True)
+                            with sc2:
+                                do_cancel = st.form_submit_button("✕ Cancel", use_container_width=True)
+                            if do_save:
+                                update_class(cls["id"],
+                                             name=e_name, provider=e_prov, location=e_loc,
+                                             cost=e_cost, fee_frequency=e_feef,
+                                             days=",".join(e_days), frequency=e_freq,
+                                             start_date=e_start.isoformat(),
+                                             time_start=e_ts.strftime("%I:%M %p") if e_ts else "",
+                                             time_end=e_te.strftime("%I:%M %p") if e_te else "")
+                                st.session_state["son_edit_id"] = None
+                                st.rerun()
+                            if do_cancel:
+                                st.session_state["son_edit_id"] = None
+                                st.rerun()
 
                 paused_count = sum(
                     1 for _, r in cls_df.iterrows()
@@ -905,16 +980,17 @@ with child_tab2:
 
         with dl1:
             if not cls_df_d.empty:
-                hc = st.columns([2.2, 1.8, 1.6, 1.4, 1.2, 0.9, 0.9])
-                for col, lbl in zip(hc, ["Class / Provider", "Days", "Time", "Fee", "Meets", "", ""]):
+                hc = st.columns([2.2, 1.8, 1.6, 1.4, 1.2, 0.75, 0.75, 0.75])
+                for col, lbl in zip(hc, ["Class / Provider", "Days", "Time", "Fee", "Meets", "", "", ""]):
                     col.markdown(f"<span style='font-size:11px;font-weight:600;color:#64748b;'>{lbl}</span>",
                                  unsafe_allow_html=True)
                 st.markdown("<hr style='margin:4px 0 8px'>", unsafe_allow_html=True)
 
                 for _, cls in cls_df_d.iterrows():
-                    is_paused = str(cls.get("paused", "FALSE")).upper() == "TRUE"
-                    row_op    = "0.55" if is_paused else "1"
-                    c1, c2, c3, c4, c5, c6, c7 = st.columns([2.2, 1.8, 1.6, 1.4, 1.2, 0.9, 0.9])
+                    is_paused  = str(cls.get("paused", "FALSE")).upper() == "TRUE"
+                    row_op     = "0.55" if is_paused else "1"
+                    is_editing = st.session_state.get("dau_edit_id") == cls["id"]
+                    c1, c2, c3, c4, c5, c6, c7, c8 = st.columns([2.2, 1.8, 1.6, 1.4, 1.2, 0.75, 0.75, 0.75])
                     with c1:
                         badge = ('<span style="background:#fef9c3;color:#854d0e;font-size:10px;'
                                  'border-radius:6px;padding:1px 6px;margin-left:4px;">⏸ paused</span>'
@@ -948,18 +1024,85 @@ with child_tab2:
                         st.markdown(f'<div style="font-size:12px;opacity:{row_op}">'
                                     f'{cls.get("frequency","")}</div>', unsafe_allow_html=True)
                     with c6:
-                        lbl = "▶ Resume" if is_paused else "⏸ Pause"
-                        if st.button(lbl, key=f"pause_dau_{cls['id']}",
+                        plbl = "▶" if is_paused else "⏸"
+                        if st.button(plbl, key=f"pause_dau_{cls['id']}",
+                                     help="Resume" if is_paused else "Pause",
                                      use_container_width=True):
                             toggle_pause(cls["id"])
                             st.rerun()
                     with c7:
+                        elbl = "✕" if is_editing else "✏️"
+                        if st.button(elbl, key=f"edit_dau_{cls['id']}",
+                                     help="Cancel edit" if is_editing else "Modify",
+                                     use_container_width=True):
+                            st.session_state["dau_edit_id"] = None if is_editing else cls["id"]
+                            st.rerun()
+                    with c8:
                         if st.button("🗑️", key=f"del_dau_{cls['id']}",
-                                     help="Delete class", use_container_width=True):
+                                     help="Delete", use_container_width=True):
                             delete_class(cls["id"])
+                            st.session_state.pop("dau_edit_id", None)
                             st.rerun()
                     st.markdown("<hr style='margin:2px 0;border-color:#f1f5f9'>",
                                 unsafe_allow_html=True)
+
+                    # ── Inline edit form ──────────────────────────────────────
+                    if is_editing:
+                        st.markdown(
+                            f'<div style="background:#fdf4ff;border:1px solid #d8b4fe;'
+                            f'border-radius:10px;padding:14px 18px;margin-bottom:10px;">'
+                            f'<b style="font-size:13px;">✏️ Editing: {cls["name"]}</b></div>',
+                            unsafe_allow_html=True)
+                        with st.form(f"edit_dau_{cls['id']}_form"):
+                            ec1, ec2 = st.columns(2)
+                            with ec1:
+                                e_name  = st.text_input("Class Name", value=str(cls.get("name","")))
+                                e_prov  = st.text_input("Provider", value=str(cls.get("provider","")))
+                                e_loc   = st.text_input("Location", value=str(cls.get("location","")))
+                                try:
+                                    e_start_val = date.fromisoformat(str(cls.get("start_date", date.today())))
+                                except (ValueError, TypeError):
+                                    e_start_val = date.today()
+                                e_start = st.date_input("Start Date", value=e_start_val, key=f"dau_esd_{cls['id']}")
+                            with ec2:
+                                e_cost  = st.number_input("Fee Amount ($)",
+                                                          value=float(cls.get("cost",0) or 0),
+                                                          min_value=0.0, step=5.0)
+                                cur_ff  = str(cls.get("fee_frequency",""))
+                                e_feef  = st.selectbox("Fee Frequency", FEE_FREQUENCIES,
+                                                       index=FEE_FREQUENCIES.index(cur_ff) if cur_ff in FEE_FREQUENCIES else 0)
+                                cur_fr  = str(cls.get("frequency",""))
+                                e_freq  = st.selectbox("Class Meets", FREQUENCIES,
+                                                       index=FREQUENCIES.index(cur_fr) if cur_fr in FREQUENCIES else 0)
+                            cur_days   = [d.strip() for d in str(cls.get("days","")).split(",") if d.strip() in DAYS_OF_WEEK]
+                            e_days     = st.multiselect("Class Days", DAYS_OF_WEEK, default=cur_days,
+                                                        key=f"dau_edays_{cls['id']}")
+                            et1, et2   = st.columns(2)
+                            with et1:
+                                e_ts = st.time_input("Start Time", value=_parse_time(cls.get("time_start")),
+                                                     key=f"dau_ets_{cls['id']}")
+                            with et2:
+                                e_te = st.time_input("End Time", value=_parse_time(cls.get("time_end")),
+                                                     key=f"dau_ete_{cls['id']}")
+                            sc1, sc2 = st.columns(2)
+                            with sc1:
+                                do_save   = st.form_submit_button("💾 Save Changes", type="primary",
+                                                                  use_container_width=True)
+                            with sc2:
+                                do_cancel = st.form_submit_button("✕ Cancel", use_container_width=True)
+                            if do_save:
+                                update_class(cls["id"],
+                                             name=e_name, provider=e_prov, location=e_loc,
+                                             cost=e_cost, fee_frequency=e_feef,
+                                             days=",".join(e_days), frequency=e_freq,
+                                             start_date=e_start.isoformat(),
+                                             time_start=e_ts.strftime("%I:%M %p") if e_ts else "",
+                                             time_end=e_te.strftime("%I:%M %p") if e_te else "")
+                                st.session_state["dau_edit_id"] = None
+                                st.rerun()
+                            if do_cancel:
+                                st.session_state["dau_edit_id"] = None
+                                st.rerun()
 
                 paused_count_d = sum(
                     1 for _, r in cls_df_d.iterrows()
