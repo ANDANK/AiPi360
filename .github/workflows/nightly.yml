@@ -1,0 +1,42 @@
+name: AiPi360 Nightly Jobs
+
+on:
+  schedule:
+    - cron: "0 5 * * *"   # 5:00 AM UTC = midnight CDT / 11pm CST
+  workflow_dispatch:        # Allow manual trigger
+
+jobs:
+  nightly-scan:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Run reminder checker
+        env:
+          STREAMLIT_SECRETS_FILE: ${{ secrets.STREAMLIT_SECRETS }}
+          ANTHROPIC_API_KEY:      ${{ secrets.ANTHROPIC_API_KEY }}
+          SPREADSHEET_ID:         ${{ secrets.SPREADSHEET_ID }}
+          GSHEET_CREDENTIALS:     ${{ secrets.GSHEET_CREDENTIALS }}
+          NTFY_TOPIC:             ${{ secrets.NTFY_TOPIC }}
+          EMAIL_SENDER:           ${{ secrets.EMAIL_SENDER }}
+          EMAIL_APP_PASSWORD:     ${{ secrets.EMAIL_APP_PASSWORD }}
+          EMAIL_RECIPIENT:        ${{ secrets.EMAIL_RECIPIENT }}
+        run: python jobs/check_reminders.py
+
+      - name: Run market alert checker
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          SPREADSHEET_ID:    ${{ secrets.SPREADSHEET_ID }}
+          GSHEET_CREDENTIALS: ${{ secrets.GSHEET_CREDENTIALS }}
+          NTFY_TOPIC:        ${{ secrets.NTFY_TOPIC }}
+        run: python jobs/check_market_alerts.py

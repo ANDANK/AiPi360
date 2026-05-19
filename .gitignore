@@ -1,0 +1,26 @@
+# Never push to git
+Not2Git/
+
+# Uploads — processed locally by Claude, may contain sensitive docs
+uploads/
+
+# Streamlit secrets
+.streamlit/secrets.toml
+
+# Common secrets & env
+.env
+.env.*
+*.key
+*.pem
+secrets/
+
+# OS & editor noise
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# Node
+node_modules/
+dist/
+build/
