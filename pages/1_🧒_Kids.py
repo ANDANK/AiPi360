@@ -786,6 +786,43 @@ with child_tab1:
                             _fresh_draw(state_key, pool, SAMPLE_N)
                             st.rerun()
 
+                    # ── STAAR weakness tracker ─────────────────────────────────
+                    st.markdown("---")
+                    st.markdown("##### 📊 STAAR Strand Performance — This Session")
+                    if "staar_strand_scores" not in st.session_state:
+                        st.session_state["staar_strand_scores"] = {}
+                    _ss = st.session_state["staar_strand_scores"]
+                    _ss.setdefault(mt_sel, []).append(score / SAMPLE_N)
+
+                    _strand_weak, _strand_ok = [], []
+                    for strand, pcts in sorted(_ss.items()):
+                        avg = sum(pcts) / len(pcts)
+                        attempts = len(pcts)
+                        bar_col = "#16a34a" if avg >= 0.75 else ("#d97706" if avg >= 0.50 else "#dc2626")
+                        flag = " ⚠️" if avg < 0.60 else (" ✅" if avg >= 0.75 else "")
+                        if avg < 0.60:
+                            _strand_weak.append(strand)
+                        st.markdown(
+                            f'<div style="background:#f8fafc;border-left:3px solid {bar_col};'
+                            f'border-radius:6px;padding:6px 12px;margin-bottom:4px;">'
+                            f'<div style="display:flex;justify-content:space-between;">'
+                            f'<span style="font-size:12px;font-weight:600;">{strand}{flag}</span>'
+                            f'<span style="font-size:12px;color:{bar_col};font-weight:700;">{int(avg*100)}% ({attempts} try)</span>'
+                            f'</div>'
+                            f'<div style="background:#e2e8f0;border-radius:3px;height:5px;margin-top:4px;">'
+                            f'<div style="background:{bar_col};width:{int(avg*100)}%;height:5px;border-radius:3px;"></div>'
+                            f'</div></div>',
+                            unsafe_allow_html=True,
+                        )
+                    if _strand_weak:
+                        st.markdown(
+                            f'<div style="background:#fff1f2;border:1px solid #fca5a5;border-radius:8px;padding:10px 14px;margin-top:8px;">'
+                            f'<b style="color:#dc2626;">🎯 Focus on:</b> {", ".join(_strand_weak)}<br>'
+                            f'<span style="font-size:12px;color:#374151;">Score below 60% — practice these strands more before test day.</span>'
+                            f'</div>',
+                            unsafe_allow_html=True,
+                        )
+
             # ── Official Tests ────────────────────────────────────────────────
             with _sp_tabs[4]:
                 st.markdown("##### 📝 Official TEA Interactive Tests — Grade 6")
@@ -811,13 +848,275 @@ with child_tab1:
                 )
 
         with sub3:
-            st.markdown("#### 🔢 Math Rocks & Number Sense")
-            st.info("💡 Specialized module for Number Sense competition preparation.")
-            ns1, ns2 = st.tabs(["📖 Tips & Tricks", "🧪 Practice Tests"])
-            with ns1:
-                coming_soon("Number sense tricks — one topic card per trick with examples")
-            with ns2:
-                coming_soon("Timed practice tests in competition format")
+            st.markdown("#### 🔢 Math Rocks — Competitions, Resources & Practice")
+            from services.math_rocks import (
+                COMPETITIONS, RESOURCES, QUESTIONS, CATEGORY_META, sample_questions
+            )
+
+            mr1, mr2, mr3, mr4 = st.tabs([
+                "🏆 Competitions", "📚 Resources", "🧮 Practice Tests", "📊 My Progress"
+            ])
+
+            # ── Competitions ──────────────────────────────────────────────────
+            with mr1:
+                st.markdown("##### 🏆 Math Competitions — McKinney TX 75070 + National")
+
+                _TRAVEL_LABEL = {
+                    "local":    ("📍 Within 50 mi",   "#eff6ff","#2563eb"),
+                    "online":   ("💻 Online",          "#f0fdf4","#059669"),
+                    "state":    ("🤠 Texas",           "#fffbeb","#d97706"),
+                    "national": ("✈️ National Travel", "#fff1f2","#dc2626"),
+                }
+                _THEME_ALL = sorted({th for c in COMPETITIONS for th in c["themes"]})
+
+                cf1, cf2 = st.columns([2,2])
+                with cf1:
+                    travel_f = st.multiselect("Travel", list(_TRAVEL_LABEL.keys()),
+                        default=list(_TRAVEL_LABEL.keys()), key="comp_travel",
+                        format_func=lambda k: _TRAVEL_LABEL[k][0])
+                with cf2:
+                    theme_f  = st.multiselect("Theme", _THEME_ALL,
+                        default=_THEME_ALL, key="comp_theme")
+
+                filtered_comps = [
+                    c for c in COMPETITIONS
+                    if c["travel"] in travel_f and any(t in theme_f for t in c["themes"])
+                ]
+                st.caption(f"{len(filtered_comps)} competition(s) shown")
+
+                for c in filtered_comps:
+                    tl, tbg, tcol = _TRAVEL_LABEL[c["travel"]]
+                    badge = f'<span style="font-size:10px;background:{tbg};color:{tcol};border-radius:4px;padding:2px 7px;font-weight:600;">{tl}</span>'
+                    best  = f' <span style="font-size:10px;background:#fef9c3;color:#92400e;border-radius:4px;padding:2px 7px;font-weight:600;">{c["badge"]}</span>' if c.get("badge") else ""
+                    themes_html = " ".join(
+                        f'<span style="font-size:10px;background:#f1f5f9;color:#475569;border-radius:4px;padding:1px 6px;">{t}</span>'
+                        for t in c["themes"]
+                    )
+                    with st.expander(f'{c["name"]} — {c["org"]}'):
+                        st.markdown(badge + best + " " + themes_html, unsafe_allow_html=True)
+                        cols = st.columns(3)
+                        cols[0].markdown(f"**Level**\n\n{c['level']}")
+                        cols[1].markdown(f"**Grades**\n\n{c['grades']}")
+                        cols[2].markdown(f"**When**\n\n{c['when']}")
+                        cols2 = st.columns(2)
+                        cols2[0].markdown(f"**Format**\n\n{c['format_detail']}")
+                        cols2[1].markdown(f"**Cost**\n\n{c['cost']}")
+                        st.markdown(f"📝 {c['notes']}")
+                        st.markdown(f"🔗 [Official Website]({c['website']})")
+
+            # ── Resources ──────────────────────────────────────────────────────
+            with mr2:
+                st.markdown("##### 📚 Resources by Theme & Level")
+                _THEMES_RES = sorted({r["theme"] for r in RESOURCES})
+                rf1, rf2 = st.columns(2)
+                with rf1:
+                    rtheme = st.multiselect("Theme", _THEMES_RES, default=_THEMES_RES, key="res_theme")
+                with rf2:
+                    rlevel = st.multiselect("Level", ["Beginner","Intermediate","Advanced"],
+                        default=["Beginner","Intermediate","Advanced"], key="res_level")
+
+                _SRC_COL = {
+                    "AoPS":        ("#eff6ff","#2563eb","📘"),
+                    "AoPS Wiki":   ("#eff6ff","#2563eb","📘"),
+                    "MATHCOUNTS":  ("#fdf4ff","#7c3aed","🏆"),
+                    "UIL Texas":   ("#f0fdf4","#059669","🤠"),
+                    "Khan Academy":("#fff1f2","#dc2626","🎓"),
+                    "YouTube":     ("#fff1f2","#dc2626","▶"),
+                    "Brilliant":   ("#fffbeb","#d97706","💡"),
+                    "IXL":         ("#fdf4ff","#7c3aed","✏️"),
+                    "CK-12":       ("#f0fdf4","#059669","📗"),
+                }
+                for theme in _THEMES_RES:
+                    if theme not in rtheme:
+                        continue
+                    theme_res = [r for r in RESOURCES if r["theme"] == theme and r["level"].split("–")[0] in " ".join(rlevel)]
+                    if not theme_res:
+                        continue
+                    st.markdown(f"**{theme}**")
+                    for r in theme_res:
+                        sbg, scol, sico = _SRC_COL.get(r["source"], ("#f1f5f9","#475569","🔗"))
+                        st.markdown(
+                            f'<div style="background:{sbg};border-left:3px solid {scol};'
+                            f'border-radius:6px;padding:8px 12px;margin-bottom:5px;">'
+                            f'<a href="{r["url"]}" target="_blank" style="font-size:13px;font-weight:600;color:{scol};text-decoration:none;">'
+                            f'{sico} {r["title"]}</a>'
+                            f'<span style="font-size:10px;background:white;color:#475569;border-radius:4px;'
+                            f'padding:1px 6px;margin-left:8px;">{r["source"]}</span>'
+                            f'<span style="font-size:10px;color:#64748b;margin-left:6px;">{r["level"]}</span>'
+                            f'<div style="font-size:11.5px;color:#374151;margin-top:3px;">{r["desc"]}</div>'
+                            '</div>',
+                            unsafe_allow_html=True,
+                        )
+                    st.markdown("")
+
+            # ── Practice Tests ────────────────────────────────────────────────
+            with mr3:
+                st.markdown("##### 🧮 Practice Tests — 20 Questions per Category")
+                # Init session state
+                if "mr_scores" not in st.session_state:
+                    st.session_state["mr_scores"] = {k: [] for k in CATEGORY_META}
+                if "mr_active" not in st.session_state:
+                    st.session_state["mr_active"] = {}
+                if "mr_submitted" not in st.session_state:
+                    st.session_state["mr_submitted"] = {}
+
+                cat_tabs = st.tabs([CATEGORY_META[k]["label"] for k in CATEGORY_META])
+
+                for tab_idx, (cat, meta) in enumerate(CATEGORY_META.items()):
+                    with cat_tabs[tab_idx]:
+                        active_key  = f"mr_qs_{cat}"
+                        submit_key  = f"mr_done_{cat}"
+                        answers_key = f"mr_ans_{cat}"
+
+                        # Load or refresh questions
+                        if active_key not in st.session_state:
+                            st.session_state[active_key]  = sample_questions(cat, 20)
+                            st.session_state[submit_key]  = False
+                            st.session_state[answers_key] = {}
+
+                        qs_with_idx = st.session_state[active_key]
+                        submitted   = st.session_state[submit_key]
+
+                        # Header row
+                        h1, h2 = st.columns([4,1])
+                        with h1:
+                            st.markdown(f'<span style="font-size:12px;color:{meta["color"]};">{meta["desc"]}</span>', unsafe_allow_html=True)
+                        with h2:
+                            if st.button("🔀 New Questions", key=f"mr_refresh_{cat}"):
+                                st.session_state[active_key]  = sample_questions(cat, 20)
+                                st.session_state[submit_key]  = False
+                                st.session_state[answers_key] = {}
+                                st.rerun()
+
+                        # Render questions
+                        with st.form(f"mr_form_{cat}"):
+                            ans_map = {}
+                            for q_num, (orig_i, q) in enumerate(qs_with_idx):
+                                diff_color = {"easy":"#16a34a","medium":"#d97706","hard":"#dc2626"}.get(q.get("diff","medium"),"#64748b")
+                                diff_badge = f'<span style="font-size:10px;color:{diff_color};background:#f1f5f9;border-radius:3px;padding:1px 5px;">{q.get("diff","").upper()}</span>'
+                                st.markdown(
+                                    f'<div style="font-size:13px;font-weight:600;margin-bottom:2px;">'
+                                    f'Q{q_num+1}. {q["q"]} {diff_badge}</div>',
+                                    unsafe_allow_html=True,
+                                )
+                                sel = st.radio(
+                                    f"q_{cat}_{q_num}",
+                                    q["opts"],
+                                    index=None,
+                                    key=f"mr_radio_{cat}_{orig_i}",
+                                    label_visibility="collapsed",
+                                    horizontal=True,
+                                )
+                                ans_map[q_num] = (orig_i, q, sel)
+
+                                if submitted:
+                                    correct = sel == q["opts"][q["ans"]]
+                                    bg_c    = "#dcfce7" if correct else "#fee2e2"
+                                    icon_c  = "✅" if correct else "❌"
+                                    exp_txt    = q.get("exp","")
+                                    result_txt = "Correct!" if correct else ("Answer: " + q["opts"][q["ans"]])
+                                    exp_part   = ("  —  " + exp_txt) if exp_txt else ""
+                                    st.markdown(
+                                        f'<div style="background:{bg_c};border-radius:6px;padding:6px 10px;font-size:12px;margin-bottom:8px;">'
+                                        f'{icon_c} {result_txt}{exp_part}</div>',
+                                        unsafe_allow_html=True,
+                                    )
+                                else:
+                                    st.markdown('<div style="margin-bottom:8px;"></div>', unsafe_allow_html=True)
+
+                            if not submitted:
+                                if st.form_submit_button("✅ Submit Answers", type="primary", use_container_width=True):
+                                    st.session_state[answers_key] = ans_map
+                                    st.session_state[submit_key]  = True
+                                    # Score it
+                                    n_correct = sum(
+                                        1 for _, (oi, q, sel) in ans_map.items()
+                                        if sel is not None and sel == q["opts"][q["ans"]]
+                                    )
+                                    n_answered = sum(1 for _, (oi, q, sel) in ans_map.items() if sel is not None)
+                                    st.session_state["mr_scores"][cat].append((n_correct, n_answered))
+                                    st.rerun()
+
+                        if submitted:
+                            n_correct = sum(
+                                1 for _, (oi, q, sel) in st.session_state[answers_key].items()
+                                if sel is not None and sel == q["opts"][q["ans"]]
+                            )
+                            n_total = len(qs_with_idx)
+                            pct = int(n_correct / n_total * 100)
+                            bar_col = "#16a34a" if pct >= 75 else ("#d97706" if pct >= 50 else "#dc2626")
+                            st.markdown(
+                                f'<div style="background:{meta["bg"]};border:1px solid {meta["color"]};'
+                                f'border-radius:10px;padding:14px;text-align:center;margin:10px 0;">'
+                                f'<div style="font-size:22px;font-weight:800;color:{bar_col};">{pct}%</div>'
+                                f'<div style="font-size:13px;color:#374151;">{n_correct} / {n_total} correct</div>'
+                                f'</div>',
+                                unsafe_allow_html=True,
+                            )
+                            if st.button("🔀 Try New Questions", key=f"mr_next_{cat}"):
+                                st.session_state[active_key]  = sample_questions(cat, 20)
+                                st.session_state[submit_key]  = False
+                                st.session_state[answers_key] = {}
+                                st.rerun()
+
+            # ── My Progress ───────────────────────────────────────────────────
+            with mr4:
+                st.markdown("##### 📊 My Progress — Session Summary")
+                scores = st.session_state.get("mr_scores", {k: [] for k in CATEGORY_META})
+                any_data = any(len(v) > 0 for v in scores.values())
+
+                if not any_data:
+                    st.info("Complete at least one practice test to see your progress here.")
+                else:
+                    st.markdown("**Performance by Category** (this session)")
+                    weak = []
+                    for cat, meta in CATEGORY_META.items():
+                        cat_scores = scores.get(cat, [])
+                        if not cat_scores:
+                            continue
+                        totals = [(c, a) for c, a in cat_scores if a > 0]
+                        if not totals:
+                            continue
+                        avg_pct = int(sum(c/a for c,a in totals) / len(totals) * 100)
+                        attempts = len(totals)
+                        bar_col  = "#16a34a" if avg_pct >= 75 else ("#d97706" if avg_pct >= 50 else "#dc2626")
+                        flag     = " ⚠️ Needs Focus" if avg_pct < 60 else (" ✅ Strong" if avg_pct >= 75 else "")
+                        if avg_pct < 60:
+                            weak.append(meta["label"])
+                        bar_w = avg_pct
+                        st.markdown(
+                            f'<div style="background:{meta["bg"]};border:1px solid {meta["color"]};'
+                            f'border-radius:8px;padding:10px 14px;margin-bottom:6px;">'
+                            f'<div style="display:flex;justify-content:space-between;align-items:center;">'
+                            f'<span style="font-weight:600;font-size:13px;">{meta["label"]}</span>'
+                            f'<span style="font-size:13px;font-weight:700;color:{bar_col};">{avg_pct}%{flag}</span>'
+                            f'</div>'
+                            f'<div style="background:#e2e8f0;border-radius:4px;height:6px;margin-top:6px;">'
+                            f'<div style="background:{bar_col};width:{bar_w}%;height:6px;border-radius:4px;"></div>'
+                            f'</div>'
+                            f'<div style="font-size:11px;color:#64748b;margin-top:3px;">{attempts} attempt(s)</div>'
+                            f'</div>',
+                            unsafe_allow_html=True,
+                        )
+
+                    if weak:
+                        st.markdown("")
+                        st.markdown(
+                            f'<div style="background:#fff1f2;border:1px solid #fca5a5;border-radius:10px;padding:12px 16px;">'
+                            f'<div style="font-weight:700;color:#dc2626;font-size:13px;">🎯 Focus Areas</div>'
+                            f'<div style="font-size:12px;color:#374151;margin-top:4px;">'
+                            f'Your scores below 60% in: <b>{", ".join(weak)}</b>.<br>'
+                            f'Practice those categories 3× before moving to others. '
+                            f'Use the Resources tab to find targeted study material.</div>'
+                            f'</div>',
+                            unsafe_allow_html=True,
+                        )
+                    else:
+                        st.success("Great job! All categories above 60%. Keep pushing for 75%+!")
+
+                    if st.button("🔄 Reset Session Scores", key="mr_reset"):
+                        st.session_state["mr_scores"] = {k: [] for k in CATEGORY_META}
+                        st.rerun()
 
         with sub4:
             st.markdown("#### 🌟 Planning Ahead from Grade 6")
