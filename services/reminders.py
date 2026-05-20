@@ -29,10 +29,12 @@ def add(
     remind_days: int = 1,
     frequency: str = "once",
     channels: str = "push",
+    due_time: str = "",          # "9:30 AM" or "" for all-day
 ) -> str:
     rid = str(uuid.uuid4())[:8]
+    full_msg = (f"⏰ {due_time} — " + message) if due_time else message
     append_row(TAB, [
-        rid, section, title, message,
+        rid, section, title, full_msg,
         due_date.isoformat(), remind_days, frequency,
         channels, "active", datetime.now().isoformat(),
     ])

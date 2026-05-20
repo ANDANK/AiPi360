@@ -417,13 +417,22 @@ with child_tab1:
                     st.markdown("---")
                     st.markdown("##### 🔔 Add FISD Reminder")
                     with st.form("school_rem_form"):
-                        r_title = st.text_input("Event / Reminder")
-                        r_date  = st.date_input("Reminder Date", value=date.today())
-                        r_msg   = st.text_area("Details", height=60)
+                        r_title   = st.text_input("Event / Reminder")
+                        r_date    = st.date_input("Reminder Date", value=date.today())
+                        r_msg     = st.text_area("Details", height=60)
+                        r_allday  = st.checkbox("All Day", value=True, key="fisd_rem_allday")
+                        if not r_allday:
+                            fc1, fc2, fc3 = st.columns([2, 2, 1])
+                            with fc1: r_hr  = st.slider("Hour", 1, 12, 9, key="fisd_rem_hr")
+                            with fc2: r_min = st.selectbox("Minute", ["00","15","30","45"], key="fisd_rem_min")
+                            with fc3: r_ap  = st.radio("", ["AM","PM"], key="fisd_rem_ampm", horizontal=False)
+                            r_time = f"{r_hr}:{r_min} {r_ap}"
+                        else:
+                            r_time = ""
                         if st.form_submit_button("➕ Add Reminder", type="primary"):
                             from services.reminders import add as add_rem
-                            add_rem("fisd", r_title, r_msg, r_date)
-                            st.success("Reminder added!")
+                            add_rem("fisd", r_title, r_msg, r_date, due_time=r_time)
+                            st.success("Reminder added!" + (f" @ {r_time}" if r_time else " (All Day)"))
                             st.rerun()
 
         with sub2:
@@ -1259,14 +1268,23 @@ Total: ~6 presentations per school year.
                     rt = st.text_input("Reminder Title (e.g. Thirukkural practice)")
                     rm = st.text_area("Details", height=60)
                 with r2:
-                    rd   = st.date_input("Due Date", value=date.today())
-                    rday = st.selectbox("Remind me (days before)", [0,1,3,7], index=1)
-                    rch  = st.selectbox("Notify via", ["push","email","push,email"])
+                    rd      = st.date_input("Due Date", value=date.today())
+                    rday    = st.selectbox("Remind me (days before)", [0,1,3,7], index=1)
+                    rch     = st.selectbox("Notify via", ["push","email","push,email"])
+                    all_day = st.checkbox("All Day", value=True, key="tamil_rem_allday")
+                if not all_day:
+                    tc1, tc2, tc3 = st.columns([2, 2, 1])
+                    with tc1: t_hr  = st.slider("Hour", 1, 12, 9, key="tamil_rem_hr")
+                    with tc2: t_min = st.selectbox("Minute", ["00","15","30","45"], key="tamil_rem_min")
+                    with tc3: t_ap  = st.radio("", ["AM","PM"], key="tamil_rem_ampm", horizontal=False)
+                    time_str = f"{t_hr}:{t_min} {t_ap}"
+                else:
+                    time_str = ""
                 if st.form_submit_button("Add Reminder", type="primary"):
                     if rt:
                         from services.reminders import add as add_rem
-                        add_rem("tamil", rt, rm, rd, rday, "once", rch)
-                        st.success(f"✅ Added: {rt}")
+                        add_rem("tamil", rt, rm, rd, rday, "once", rch, time_str)
+                        st.success(f"✅ Added: {rt}" + (f" @ {time_str}" if time_str else " (All Day)"))
                         st.rerun()
 
         # ── Resources ─────────────────────────────────────────────────────────
