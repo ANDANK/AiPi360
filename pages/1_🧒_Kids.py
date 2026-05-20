@@ -1059,7 +1059,7 @@ Total: ~6 presentations per school year.
                 ("2026-11-29", "Unit 3", "2nd Class",  "class",   ""),
                 ("2026-12-06", "Unit 3", "3rd Class",  "class",   ""),
                 ("2026-12-13", "Unit 3", "4th Class",  "class",   ""),
-                ("2026-12-20", "Unit 3", "5th Class",  "class",   "Unit Test 3 & 6th Week Presentation"),
+                ("2026-12-20", "Unit 3", "5th & 6th Class", "class", "Unit Test 3 & 6th Week Presentation (combined — Thanksgiving removed 6th class)"),
                 ("2026-12-27", "",       "",            "holiday", "Winter Break — No Class"),
                 ("2027-01-03", "",       "",            "holiday", "Winter Break — No Class"),
                 ("2027-01-07", "",       "",            "ptc",     "Parent-Teacher Conference (online via GMeet) @7PM"),
@@ -1123,8 +1123,6 @@ Total: ~6 presentations per school year.
             with cal_view:
                 current_unit = None
                 for ds, unit, cls, etype, detail in _PTS_CALENDAR:
-                    if etype not in ("class", "ptc"):
-                        continue
                     if unit and unit != current_unit:
                         current_unit = unit
                         st.markdown(f"**── {unit} ──**")
@@ -1133,8 +1131,12 @@ Total: ~6 presentations per school year.
                     is_past  = d < today_d
                     row_bg   = "#f8fafc" if is_past else bg
                     opacity  = "0.55" if is_past else "1"
-                    label    = f"{cls}" if cls else "Conference"
-                    detail_s = f" — {detail}" if detail else ""
+                    if etype in ("class", "ptc"):
+                        label    = cls if cls else "Conference"
+                        detail_s = f" — {detail}" if detail else ""
+                    else:
+                        label    = detail
+                        detail_s = ""
                     st.markdown(
                         f'<div style="background:{row_bg};border-left:3px solid {col_c};'
                         f'border-radius:6px;padding:6px 12px;margin-bottom:4px;opacity:{opacity};">'
