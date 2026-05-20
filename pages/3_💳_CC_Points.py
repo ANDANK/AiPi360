@@ -10,7 +10,10 @@ from datetime import date
 st.set_page_config(page_title="AiPi360 · CC & Points", page_icon="💳", layout="wide")
 
 from backend.auth import require_auth, sign_out
+from backend.page_manager import check_maintenance, check_page_access
 require_auth()
+check_maintenance()
+check_page_access("cc_points")
 
 from components.metric_card import section_header, coming_soon
 from components.reminder_banner import render_section_reminders

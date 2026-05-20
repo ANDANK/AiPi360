@@ -13,8 +13,10 @@ st.set_page_config(
     initial_sidebar_state="expanded",
 )
 
-from backend.auth import require_auth, sign_out
+from backend.auth import require_auth, sign_out, get_role, render_role_badge
+from backend.page_manager import check_maintenance, is_page_visible
 require_auth()
+check_maintenance()
 
 from components.reminder_banner import render_reminder_banner
 from components.metric_card import section_header
@@ -77,6 +79,7 @@ html, body, [class*="css"] { font-family: 'Inter', sans-serif !important; }
 
 # ── Sidebar ───────────────────────────────────────────────────────────────────
 with st.sidebar:
+    render_role_badge()
     st.markdown("---")
     if st.button("🚪 Sign Out", use_container_width=True):
         sign_out()
@@ -162,30 +165,38 @@ st.markdown("---")
 # ── Navigation Cards ──────────────────────────────────────────────────────────
 st.markdown("#### 🗂️ Sections")
 
-NAV = [
-    ("🧒", "Kids",            "pages/1_🧒_Kids.py",            "School, activities & planning for son and daughter"),
-    ("🛡️", "Insurance",       "pages/2_🛡️_Insurance.py",       "Policies, premiums, renewals & smart shopping"),
-    ("💳", "CC & Points",     "pages/3_💳_CC_Points.py",       "Maximize rewards, lounge access & offers"),
-    ("✈️", "Travel",          "pages/4_✈️_Travel.py",          "Best deals on flights, hotels & points travel"),
-    ("📅", "Calendar",        "pages/5_📅_Calendar.py",        "All reminders, events & school calendars"),
-    ("📊", "Account Tracker", "pages/6_📊_Account_Tracker.py", "Equities, home, auto & expenses dashboard"),
+_ALL_NAV = [
+    ("🧒", "Kids",            "pages/1_🧒_Kids.py",            "kids",      "School, activities & planning for son and daughter"),
+    ("🛡️", "Insurance",       "pages/2_🛡️_Insurance.py",       "insurance", "Policies, premiums, renewals & smart shopping"),
+    ("💳", "CC & Points",     "pages/3_💳_CC_Points.py",       "cc_points", "Maximize rewards, lounge access & offers"),
+    ("✈️", "Travel",          "pages/4_✈️_Travel.py",          "travel",    "Best deals on flights, hotels & points travel"),
+    ("📅", "Calendar",        "pages/5_📅_Calendar.py",        "calendar",  "All reminders, events & school calendars"),
+    ("📊", "Account Tracker", "pages/6_📊_Account_Tracker.py", "accounts",  "Equities, home, auto & expenses dashboard"),
 ]
+_role = get_role()
+NAV = [
+    (icon, title, page, desc)
+    for icon, title, page, pkey, desc in _ALL_NAV
+    if is_page_visible(pkey)
+]
+if _role == "admin":
+    NAV.append(("🔒", "Admin Panel", "pages/7_🔒_Admin.py", "Site management, page controls & maintenance"))
 
-row1 = st.columns(3)
-row2 = st.columns(3)
-rows = row1 + row2
-
-for col, (icon, title, page, desc) in zip(rows, NAV):
-    with col:
-        st.markdown(
-            f"""<div class="nav-card">
-              <div class="nav-icon">{icon}</div>
-              <div class="nav-title">{title}</div>
-              <div class="nav-desc">{desc}</div>
-            </div>""",
-            unsafe_allow_html=True,
-        )
-        st.page_link(page, label=f"Open {title} →", use_container_width=True)
+n_cols = min(len(NAV), 3)
+rows_nav = [NAV[i:i+n_cols] for i in range(0, len(NAV), n_cols)]
+for row_items in rows_nav:
+    row_cols = st.columns(n_cols)
+    for col, (icon, title, page, desc) in zip(row_cols, row_items):
+        with col:
+            st.markdown(
+                f"""<div class="nav-card">
+                  <div class="nav-icon">{icon}</div>
+                  <div class="nav-title">{title}</div>
+                  <div class="nav-desc">{desc}</div>
+                </div>""",
+                unsafe_allow_html=True,
+            )
+            st.page_link(page, label=f"Open {title} →", use_container_width=True)
 
 st.markdown("---")
 

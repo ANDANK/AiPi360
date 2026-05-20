@@ -1,8 +1,19 @@
-"""Password-based auth using Streamlit secrets."""
+"""
+Password-based auth with three roles.
+
+  ADMIN_PASSWORD  → role "admin"  — full access + Admin page
+  USER_PASSWORD   → role "user"   — all pages, respects page settings
+  KID_PASSWORD    → role "kid"    — Kids page only
+  PASSWORD        → role "user"   — legacy single-password fallback
+
+Session state keys:  authenticated (bool), role (str)
+"""
 import streamlit as st
 
 
-_CSS = """
+# ── CSS ───────────────────────────────────────────────────────────────────────
+
+_LOGIN_CSS = """
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
 .login-wrap {
@@ -26,11 +37,67 @@ _CSS = """
 </style>
 """
 
+_ROLE_CSS = {
+    # Admin: hide nothing — sees all pages
+    "admin": "",
+    # User: hide admin page link from sidebar
+    "user": """
+<style>
+[data-testid="stSidebarNav"] ul li:has(a[href*="Admin"]) { display: none !important; }
+</style>
+""",
+    # Kid: show only Home + Kids in sidebar
+    "kid": """
+<style>
+[data-testid="stSidebarNav"] ul li { display: none !important; }
+[data-testid="stSidebarNav"] ul li:first-child,
+[data-testid="stSidebarNav"] ul li:has(a[href*="Kids"]) { display: flex !important; }
+</style>
+""",
+}
 
-def require_auth():
+ROLE_LABELS = {
+    "admin": ("🔒", "Admin",  "#7c3aed", "#ede9fe"),
+    "user":  ("👤", "User",   "#2563eb", "#eff6ff"),
+    "kid":   ("🧒", "Kid",    "#059669", "#f0fdf4"),
+}
+
+
+# ── Public helpers ────────────────────────────────────────────────────────────
+
+def get_role() -> str:
+    """Return the current user's role: 'admin', 'user', or 'kid'."""
+    return st.session_state.get("role", "user")
+
+
+def _inject_role_css() -> None:
+    css = _ROLE_CSS.get(get_role(), "")
+    if css:
+        st.markdown(css, unsafe_allow_html=True)
+
+
+# ── Role badge in sidebar ─────────────────────────────────────────────────────
+
+def render_role_badge() -> None:
+    role = get_role()
+    icon, label, color, bg = ROLE_LABELS.get(role, ("👤", "User", "#2563eb", "#eff6ff"))
+    st.markdown(
+        f'<div style="background:{bg};border-radius:8px;padding:6px 12px;'
+        f'font-size:12px;font-weight:600;color:{color};margin-bottom:4px;">'
+        f'{icon} {label}</div>',
+        unsafe_allow_html=True,
+    )
+
+
+# ── Core auth ─────────────────────────────────────────────────────────────────
+
+def require_auth() -> None:
+    """Show login gate if not authenticated; inject role CSS if authenticated."""
     if st.session_state.get("authenticated"):
+        _inject_role_css()
         return
-    st.markdown(_CSS, unsafe_allow_html=True)
+
+    st.markdown(_LOGIN_CSS, unsafe_allow_html=True)
     st.markdown(
         '<div class="login-wrap">'
         '<div class="login-logo">Ai<span>Pi</span>360</div>'
@@ -40,17 +107,47 @@ def require_auth():
     )
     col = st.columns([1, 2, 1])[1]
     with col:
-        pwd = st.text_input("Password", type="password", label_visibility="collapsed",
+        pwd = st.text_input("Password", type="password",
+                            label_visibility="collapsed",
                             placeholder="Enter password…")
         if st.button("Sign In", use_container_width=True, type="primary"):
-            if pwd == st.secrets.get("PASSWORD", ""):
-                st.session_state.authenticated = True
-                st.rerun()
-            else:
-                st.error("Incorrect password.")
+            _check_password(pwd)
     st.stop()
 
 
-def sign_out():
-    st.session_state.authenticated = False
+def _check_password(pwd: str) -> None:
+    s = st.secrets
+    # Preference order: ADMIN > USER > KID > legacy PASSWORD
+    if pwd and pwd == s.get("ADMIN_PASSWORD", ""):
+        _login("admin")
+    elif pwd and pwd == s.get("USER_PASSWORD", ""):
+        _login("user")
+    elif pwd and pwd == s.get("KID_PASSWORD", ""):
+        _login("kid")
+    elif pwd and pwd == s.get("PASSWORD", ""):
+        _login("user")   # legacy fallback
+    else:
+        st.error("Incorrect password.")
+
+
+def _login(role: str) -> None:
+    st.session_state.authenticated = True
+    st.session_state.role = role
+    # Clear page-settings cache so fresh load happens after login
+    st.session_state.pop("_app_settings_cache", None)
+    st.rerun()
+
+
+def require_admin() -> None:
+    """Call at the top of admin-only pages."""
+    require_auth()
+    if get_role() != "admin":
+        st.warning("🔒 This page requires Admin access.")
+        st.page_link("app.py", label="← Back to Home")
+        st.stop()
+
+
+def sign_out() -> None:
+    for key in ("authenticated", "role", "_app_settings_cache"):
+        st.session_state.pop(key, None)
     st.rerun()
