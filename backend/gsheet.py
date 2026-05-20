@@ -12,9 +12,12 @@ _SCOPES = [
 # Expected columns per tab — used to initialise empty sheets
 TAB_SCHEMAS: dict[str, list[str]] = {
     "reminders":         ["id","section","title","message","due_date","remind_days","frequency","channels","status","created_at"],
-    "accounts":          ["account_id","account_name","account_type","owner","active"],
+    "accounts":          ["account_id","account_name","account_type","owner","active","broker_name","tax_status"],
     "account_balances":  ["date","account_id","account_name","balance"],
     "market_alerts":     ["id","ticker","condition","threshold","channels","active"],
+    "brokers":           ["broker_id","broker_name","active"],
+    "manual_accounts":   ["entry_date","account_name","owner","category","value","notes","created_at"],
+    "AppSettings":       ["key","value"],
     "insurance_policies":["id","type","provider","policy_number","premium","frequency","due_date","notes","active"],
     "cc_cards":          ["id","name","bank","last4","annual_fee","fee_due_date","credit_limit","perks","active"],
     "classes":           ["id","child","name","provider","cost","fee_frequency","days","frequency","start_date","end_date","active","paused","time_start","time_end","location"],

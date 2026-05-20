@@ -129,8 +129,8 @@ def deactivate_account(account_id: str) -> None:
 
 def list_brokers(active_only: bool = False) -> pd.DataFrame:
     df = read_sheet(BROKERS_TAB)
-    if df.empty:
-        return df
+    if df.empty or "broker_name" not in df.columns:
+        return pd.DataFrame(columns=["broker_id", "broker_name", "active"])
     if active_only:
         df = df[df["active"].astype(str).str.upper().isin(["TRUE", "1", "YES"])]
     return df
@@ -155,10 +155,11 @@ def toggle_broker(broker_id: str) -> None:
 
 def seed_brokers() -> None:
     df = read_sheet(BROKERS_TAB)
-    if not df.empty:
+    if not df.empty and "broker_name" in df.columns:
         return
-    for name in _DEFAULT_BROKERS:
-        add_broker(name)
+    rows = [{"broker_id": str(uuid.uuid4())[:8], "broker_name": name, "active": "TRUE"}
+            for name in _DEFAULT_BROKERS]
+    overwrite_sheet(BROKERS_TAB, pd.DataFrame(rows, columns=["broker_id", "broker_name", "active"]))
 
 
 # ── Manual entries ────────────────────────────────────────────────────────────
