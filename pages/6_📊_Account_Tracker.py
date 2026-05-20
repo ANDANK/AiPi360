@@ -179,10 +179,10 @@ if view == _VIEW_RET:   display_accts = ret_accts_all
 elif view == _VIEW_NON: display_accts = nonret_accts
 else:                   display_accts = all_accts
 
+_no_accts_msg = ""
 if not display_accts:
     kind = "retirement" if view == _VIEW_RET else ("non-retirement" if view == _VIEW_NON else "")
-    st.warning(f"No active {kind} accounts. Go to **Manage Accounts** to add some.")
-    st.stop()
+    _no_accts_msg = f"No active {kind} accounts. Use the **🏦 Account Management** tab to add some."
 
 def _split_by_owner(accts):
     s = sorted([a for a in accts if a.get("owner")=="self"],   key=lambda a: a.get("account_type",""))
@@ -191,7 +191,7 @@ def _split_by_owner(accts):
     return s, p, j
 
 # SECURE 2.0 warning (2026+)
-if view in (_VIEW_RET, _VIEW_ALL) and current_year >= 2026:
+if display_accts and view in (_VIEW_RET, _VIEW_ALL) and current_year >= 2026:
     s_ret, sp_ret, _ = _split_by_owner(ret_accts_all)
     missing = []
     if not any(a.get("account_type")=="roth_401k" for a in s_ret):
@@ -214,15 +214,20 @@ _excluded    = st.session_state.get("ret_excluded", set())
 hist_filt    = bal_history[bal_history["account_id"].isin(disp_ids)] if not bal_history.empty else bal_history
 
 def _sum(ids): return sum(v for k,v in latest.items() if k in ids and k not in _excluded)
-_total_now   = _sum(disp_ids)
-_ret_now     = _sum(ret_ids)
-_nonret_now  = _sum(nonret_ids)
-_self_now    = sum(v for k,v in latest.items() if k not in _excluded and k in disp_ids
+_total_now   = _sum(disp_ids) if display_accts else 0.0
+_ret_now     = _sum(ret_ids)  if display_accts else 0.0
+_nonret_now  = _sum(nonret_ids) if display_accts else 0.0
+_self_now    = (sum(v for k,v in latest.items() if k not in _excluded and k in disp_ids
                    and any(a["account_id"]==k and a.get("owner")=="self" for a in display_accts))
-_spouse_now  = sum(v for k,v in latest.items() if k not in _excluded and k in disp_ids
+                if display_accts else 0.0)
+_spouse_now  = (sum(v for k,v in latest.items() if k not in _excluded and k in disp_ids
                    and any(a["account_id"]==k and a.get("owner")=="spouse" for a in display_accts))
+                if display_accts else 0.0)
 
 # ── Tabs ──────────────────────────────────────────────────────────────────────
+if _no_accts_msg:
+    st.warning(_no_accts_msg)
+
 tab_bal, tab_analytics, tab_proj, tab_mgmt, tab_alerts = st.tabs([
     "📥 Balance Input", "📊 Analytics", "🔮 Projections", "🏦 Account Management", "🔔 Market Alerts"
 ])
