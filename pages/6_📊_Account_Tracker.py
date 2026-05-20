@@ -461,8 +461,13 @@ with tab_analytics:
                     )
             with dcol2:
                 if unmatched_ids:
-                    st.markdown("**⚠️ Sheet IDs not matching any account in this view**")
-                    st.caption("Fix the account_id in the sheet, or switch views.")
+                    st.markdown("**⚠️ Balance history found for unknown account IDs**")
+                    st.caption(
+                        "These account_ids exist in the balance sheet but don't match any account "
+                        "in the **current view**. If it's a non-retirement account, switch to "
+                        "**All Accounts** view to see it. If it was deleted, the history remains "
+                        "but the account is no longer tracked."
+                    )
                     for uid in sorted(unmatched_ids):
                         row = bal_history[bal_history["account_id"].astype(str).str.strip()==uid]
                         name = row["account_name"].iloc[0] if not row.empty else "?"
@@ -510,15 +515,16 @@ with tab_analytics:
                 rows_pv.append(row)
             wide_df = pd.DataFrame(rows_pv)
 
-            # Total row — sum Balance columns; recalculate YoY from totals
+            # Total row — two passes: sum balances first, then compute YoY from totals
             total_row: dict = {"Account": "📊 Total"}
-            for i, yr in enumerate(years):
+            for yr in years:
                 bal_col = f"{yr} Balance"
                 total_row[bal_col] = wide_df[bal_col].sum(skipna=True) if bal_col in wide_df.columns else None
+            for i, yr in enumerate(years):
                 prev = years[i+1] if i+1 < len(years) else None
                 if prev is not None:
-                    tb  = total_row[bal_col]
-                    pb  = total_row.get(f"{prev} Balance")
+                    tb = total_row.get(f"{yr} Balance")
+                    pb = total_row.get(f"{prev} Balance")
                     if tb is not None and pb is not None and pb != 0:
                         total_row[f"{yr} YoY $"] = tb - pb
                         total_row[f"{yr} YoY %"] = (tb - pb) / pb * 100
@@ -529,10 +535,12 @@ with tab_analytics:
             wide_df = pd.concat([wide_df, pd.DataFrame([total_row])], ignore_index=True)
 
             col_cfg = {}
-            for yr in years:
-                col_cfg[f"{yr} Balance"] = st.column_config.NumberColumn(f"{yr} Balance", format="$%,.0f", width="medium")
-                col_cfg[f"{yr} YoY $"]   = st.column_config.NumberColumn(f"{yr} YoY $",   format="$%+,.0f", width="medium")
-                col_cfg[f"{yr} YoY %"]   = st.column_config.NumberColumn(f"{yr} YoY %",   format="%+.1f%%", width="small")
+            for i, yr in enumerate(years):
+                prev = years[i+1] if i+1 < len(years) else None
+                vs_label = f" vs {prev}" if prev else ""
+                col_cfg[f"{yr} Balance"] = st.column_config.NumberColumn(f"{yr} Balance",       format="$%,.0f",  width="medium")
+                col_cfg[f"{yr} YoY $"]   = st.column_config.NumberColumn(f"{yr}{vs_label} ($)", format="$%+,.0f", width="medium")
+                col_cfg[f"{yr} YoY %"]   = st.column_config.NumberColumn(f"{yr}{vs_label} (%)", format="%+.1f%%", width="small")
             st.caption("Most recent year first · Scroll right for older years · YoY vs prior year-end")
             st.dataframe(wide_df, use_container_width=True, hide_index=True,
                          height=min(500, 60+38*max(len(wide_df),1)), column_config=col_cfg)
