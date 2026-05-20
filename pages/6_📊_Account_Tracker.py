@@ -509,6 +509,25 @@ with tab_analytics:
                         row[f"{yr} YoY $"] = row[f"{yr} YoY %"] = None
                 rows_pv.append(row)
             wide_df = pd.DataFrame(rows_pv)
+
+            # Total row — sum Balance columns; recalculate YoY from totals
+            total_row: dict = {"Account": "📊 Total"}
+            for i, yr in enumerate(years):
+                bal_col = f"{yr} Balance"
+                total_row[bal_col] = wide_df[bal_col].sum(skipna=True) if bal_col in wide_df.columns else None
+                prev = years[i+1] if i+1 < len(years) else None
+                if prev is not None:
+                    tb  = total_row[bal_col]
+                    pb  = total_row.get(f"{prev} Balance")
+                    if tb is not None and pb is not None and pb != 0:
+                        total_row[f"{yr} YoY $"] = tb - pb
+                        total_row[f"{yr} YoY %"] = (tb - pb) / pb * 100
+                    else:
+                        total_row[f"{yr} YoY $"] = total_row[f"{yr} YoY %"] = None
+                else:
+                    total_row[f"{yr} YoY $"] = total_row[f"{yr} YoY %"] = None
+            wide_df = pd.concat([wide_df, pd.DataFrame([total_row])], ignore_index=True)
+
             col_cfg = {}
             for yr in years:
                 col_cfg[f"{yr} Balance"] = st.column_config.NumberColumn(f"{yr} Balance", format="$%,.0f", width="medium")
