@@ -82,8 +82,10 @@ with child_tab1:
   <div><b>🗓️ First Day</b><br>August 12, 2026</div>
 </div>""", unsafe_allow_html=True)
 
-            # ── Two sections: Calendar + Curriculum ───────────────────────────
-            cal_section, curr_section = st.tabs(["📅 School Calendar", "📚 TEKS Curriculum"])
+            # ── Two sections: Calendar + Curriculum + Tests ───────────────────
+            cal_section, curr_section, test_section = st.tabs([
+                "📅 School Calendar", "📚 TEKS Curriculum", "📝 Tests & Assessments"
+            ])
 
             with curr_section:
                 import html as _html
@@ -434,6 +436,124 @@ with child_tab1:
                             add_rem("fisd", r_title, r_msg, r_date, due_time=r_time)
                             st.success("Reminder added!" + (f" @ {r_time}" if r_time else " (All Day)"))
                             st.rerun()
+
+            with test_section:
+                st.markdown("#### 📝 Tests & Assessments — 2026-2027")
+                st.caption("FISD 6-week assessments, benchmarks, STAAR, and Tamil school unit tests in one view.")
+
+                # ── Data ─────────────────────────────────────────────────────
+                _TESTS = [
+                    # (date, end_date_or_None, label, category, source, confirmed)
+                    # FISD 6-week grading periods
+                    ("2026-08-12","2026-09-19","1st Six Weeks",        "6-Week Period","FISD",  True),
+                    ("2026-09-22","2026-10-30","2nd Six Weeks",        "6-Week Period","FISD",  True),
+                    ("2026-11-02","2026-12-19","3rd Six Weeks",        "6-Week Period","FISD",  True),
+                    ("2027-01-06","2027-02-13","4th Six Weeks",        "6-Week Period","FISD",  True),
+                    ("2027-02-17","2027-03-26","5th Six Weeks",        "6-Week Period","FISD",  True),
+                    ("2027-03-29","2027-05-28","6th Six Weeks",        "6-Week Period","FISD",  True),
+                    # Report card days (approx 1 week after period end)
+                    ("2026-09-25",None,        "Report Cards — 1st 6wks","Report Card","FISD",  False),
+                    ("2026-11-06",None,        "Report Cards — 2nd 6wks","Report Card","FISD",  False),
+                    ("2027-01-08",None,        "Report Cards — 3rd 6wks","Report Card","FISD",  False),
+                    ("2027-02-19",None,        "Report Cards — 4th 6wks","Report Card","FISD",  False),
+                    ("2027-04-02",None,        "Report Cards — 5th 6wks","Report Card","FISD",  False),
+                    ("2027-06-04",None,        "Report Cards — 6th 6wks (Final)","Report Card","FISD", False),
+                    # Benchmark / common assessments
+                    ("2026-10-19","2026-10-23","Benchmark 1 Window",   "Benchmark",   "FISD",  False),
+                    ("2027-02-22","2027-02-26","Benchmark 2 Window",   "Benchmark",   "FISD",  False),
+                    # STAAR — Grade 6 (Math & RLA, typically late April)
+                    ("2027-04-21",None,        "STAAR — Math (Gr. 6)", "STAAR",       "FISD",  False),
+                    ("2027-04-23",None,        "STAAR — Reading/Language Arts","STAAR","FISD", False),
+                    # Tamil school unit tests (from PTS 2026-2027 PDF)
+                    ("2026-09-13",None,        "Tamil Unit Test 1",    "Unit Test",   "Tamil School", True),
+                    ("2026-10-25",None,        "Tamil Unit Test 2",    "Unit Test",   "Tamil School", True),
+                    ("2026-12-20",None,        "Tamil Unit Test 3 + 6th Week Presentation","Unit Test","Tamil School", True),
+                    ("2027-02-14",None,        "Tamil Unit Test 4",    "Unit Test",   "Tamil School", True),
+                    ("2027-04-18",None,        "Tamil Final Test",     "Final Test",  "Tamil School", True),
+                ]
+
+                _CAT_STYLE = {
+                    "6-Week Period": ("#eff6ff","#2563eb","📆"),
+                    "Report Card":   ("#f0fdf4","#16a34a","📋"),
+                    "Benchmark":     ("#fdf4ff","#7c3aed","📊"),
+                    "STAAR":         ("#fff1f2","#dc2626","⭐"),
+                    "Unit Test":     ("#fef9c3","#92400e","✏️"),
+                    "Final Test":    ("#fff7ed","#c2410c","🏁"),
+                }
+
+                today_d = date.today()
+
+                # ── View toggle ───────────────────────────────────────────────
+                tv1, tv2 = st.columns([3,1])
+                with tv2:
+                    src_filter = st.multiselect(
+                        "Source", ["FISD","Tamil School"],
+                        default=["FISD","Tamil School"], key="test_src_filter",
+                        label_visibility="collapsed",
+                    )
+                with tv1:
+                    cat_filter = st.multiselect(
+                        "Category", list(_CAT_STYLE.keys()),
+                        default=list(_CAT_STYLE.keys()), key="test_cat_filter",
+                        label_visibility="collapsed",
+                    )
+
+                # ── Upcoming banner (next 3) ──────────────────────────────────
+                upcoming_tests = [
+                    t for t in _TESTS
+                    if date.fromisoformat(t[0]) >= today_d
+                    and t[3] in cat_filter and t[4] in src_filter
+                ][:3]
+                if upcoming_tests:
+                    st.markdown("##### 🔔 Up Next")
+                    uc = st.columns(len(upcoming_tests))
+                    for ci, (ds, de, lbl, cat, src, conf) in enumerate(upcoming_tests):
+                        bg, col_c, ico = _CAT_STYLE[cat]
+                        d = date.fromisoformat(ds)
+                        days_away = (d - today_d).days
+                        tag = "Today!" if days_away==0 else (f"In {days_away}d" if days_away<=14 else d.strftime("%b %d"))
+                        est = "" if conf else " *(est.)*"
+                        uc[ci].markdown(
+                            f'<div style="background:{bg};border:1px solid {col_c};border-radius:10px;'
+                            f'padding:10px;text-align:center;">'
+                            f'<div style="font-size:18px">{ico}</div>'
+                            f'<div style="font-size:11px;color:{col_c};font-weight:700;">{tag}</div>'
+                            f'<div style="font-size:11px;font-weight:600;margin-top:2px;">{lbl}{est}</div>'
+                            f'<div style="font-size:10px;color:#64748b;">{src}</div>'
+                            '</div>',
+                            unsafe_allow_html=True,
+                        )
+                    st.markdown("")
+
+                # ── Full list ─────────────────────────────────────────────────
+                st.markdown("##### 📋 Full Assessment Schedule")
+                for ds, de, lbl, cat, src, conf in _TESTS:
+                    if cat not in cat_filter or src not in src_filter:
+                        continue
+                    d       = date.fromisoformat(ds)
+                    bg, col_c, ico = _CAT_STYLE[cat]
+                    is_past = (date.fromisoformat(de) if de else d) < today_d
+                    opacity = "0.5" if is_past else "1"
+                    est     = " *(est.)*" if not conf else ""
+                    if de:
+                        date_str = f"{d.strftime('%b %d')} – {date.fromisoformat(de).strftime('%b %d, %Y')}"
+                    else:
+                        date_str = d.strftime("%a, %b %d, %Y")
+                    src_badge = (
+                        f'<span style="font-size:10px;background:#f1f5f9;color:#475569;'
+                        f'border-radius:4px;padding:1px 6px;margin-left:6px;">{src}</span>'
+                    )
+                    st.markdown(
+                        f'<div style="background:{bg};border-left:3px solid {col_c};'
+                        f'border-radius:6px;padding:7px 12px;margin-bottom:4px;opacity:{opacity};">'
+                        f'<span style="font-size:12px;font-weight:600;color:{col_c};">{ico} {date_str}</span>'
+                        f'<span style="font-size:12px;color:#1e293b;margin-left:8px;">{lbl}{est}</span>'
+                        f'{src_badge}'
+                        '</div>',
+                        unsafe_allow_html=True,
+                    )
+
+                st.caption("FISD report cards & benchmark windows are estimated — verify at portal.friscoisd.org. STAAR dates are est. late April; official dates posted by TEA ~January.")
 
         with sub2:
             st.markdown("#### 🎯 STAAR Exam Preparation — Grade 6")
