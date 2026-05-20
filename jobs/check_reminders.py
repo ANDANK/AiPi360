@@ -46,19 +46,33 @@ def _send_push(title: str, message: str) -> None:
     topic = os.environ.get("NTFY_TOPIC", "")
     if not topic:
         return
+    # Use JSON body so emoji/Unicode in title and message are handled as UTF-8
     requests.post(
-        f"https://ntfy.sh/{topic}",
-        data=message.encode(),
-        headers={"Title": title, "Priority": "high", "Tags": "bell"},
+        "https://ntfy.sh/",
+        json={
+            "topic":    topic,
+            "title":    title,
+            "message":  message,
+            "priority": 4,
+            "tags":     ["bell"],
+        },
         timeout=10,
     )
 
 
 def _send_email(subject: str, html_body: str) -> None:
-    import resend
-    resend.api_key = os.environ.get("RESEND_API_KEY", "")
+    import re, resend
+    resend.api_key  = os.environ.get("RESEND_API_KEY", "")
+    from_raw        = os.environ.get("RESEND_FROM", "AiPi360 <onboarding@resend.dev>")
+    # Validate: must be email@domain or Name <email@domain>
+    _valid = re.match(r'^[^<>]+<[^@\s]+@[^@\s]+\.[^@\s]+>$|^[^@\s]+@[^@\s]+\.[^@\s]+$', from_raw.strip())
+    if not _valid:
+        raise ValueError(
+            f"RESEND_FROM env var is not a valid email address: {from_raw!r}\n"
+            "Expected format: 'you@yourdomain.com' or 'Your Name <you@yourdomain.com>'"
+        )
     resend.Emails.send({
-        "from":    os.environ.get("RESEND_FROM", "AiPi360 <onboarding@resend.dev>"),
+        "from":    from_raw.strip(),
         "to":      [os.environ.get("RESEND_RECIPIENT", "")],
         "subject": subject,
         "html":    html_body,
