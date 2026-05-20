@@ -8,11 +8,22 @@ import streamlit as st
 # ── Resend email ──────────────────────────────────────────────────────────────
 
 def _send_email(subject: str, body: str) -> None:
-    import resend
-    cfg = st.secrets.get("resend", {})
+    import re, resend
+    cfg        = st.secrets.get("resend", {})
     resend.api_key = cfg.get("api_key", "")
+    from_addr  = cfg.get("from_address", "").strip()
+    if not from_addr:
+        raise ValueError(
+            "resend.from_address is not set in Streamlit secrets.\n"
+            "Add it as: from_address = \"Your Name <you@yourdomain.com>\""
+        )
+    if not re.match(r'^[^<>]+<[^@\s]+@[^@\s]+\.[^@\s]+>$|^[^@\s]+@[^@\s]+\.[^@\s]+$', from_addr):
+        raise ValueError(
+            f"resend.from_address is not a valid email: {from_addr!r}\n"
+            "Expected: 'you@yourdomain.com' or 'Your Name <you@yourdomain.com>'"
+        )
     resend.Emails.send({
-        "from":    cfg.get("from_address", "AiPi360 <notifications@yourdomain.com>"),
+        "from":    from_addr,
         "to":      [cfg.get("recipient", "")],
         "subject": subject,
         "html":    body,
@@ -21,22 +32,25 @@ def _send_email(subject: str, body: str) -> None:
 
 # ── ntfy.sh push ──────────────────────────────────────────────────────────────
 
-_PRIORITY_MAP = {"low": "low", "default": "default", "high": "high", "urgent": "urgent"}
+_PRIORITY_MAP = {"low": 2, "default": 3, "high": 4, "urgent": 5}
 
 
 def _send_push(title: str, message: str, priority: str = "default",
                tags: list[str] | None = None) -> None:
     cfg    = st.secrets.get("ntfy", {})
     topic  = cfg.get("topic", "aipi360")
-    server = cfg.get("server", "https://ntfy.sh")
-    headers: dict = {
-        "Title":    title,
-        "Priority": _PRIORITY_MAP.get(priority, "default"),
+    server = cfg.get("server", "https://ntfy.sh").rstrip("/")
+    # Use JSON body — HTTP headers are latin-1 encoded by requests,
+    # which crashes on any emoji in title. JSON body is UTF-8.
+    payload: dict = {
+        "topic":    topic,
+        "title":    title,
+        "message":  message,
+        "priority": _PRIORITY_MAP.get(priority, 3),
     }
     if tags:
-        headers["Tags"] = ",".join(tags)
-    requests.post(f"{server}/{topic}", data=message.encode("utf-8"),
-                  headers=headers, timeout=10)
+        payload["tags"] = tags
+    requests.post(f"{server}/", json=payload, timeout=10)
 
 
 # ── Public API ────────────────────────────────────────────────────────────────
