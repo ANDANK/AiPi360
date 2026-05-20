@@ -11,23 +11,27 @@ def _send_email(subject: str, body: str) -> None:
     import re, resend
     cfg        = st.secrets.get("resend", {})
     resend.api_key = cfg.get("api_key", "")
-    from_addr  = cfg.get("from_address", "").strip()
+    # Strip whitespace AND any accidental surrounding quotes from the secrets value
+    from_addr  = cfg.get("from_address", "").strip().strip("\"'")
     if not from_addr:
         raise ValueError(
-            "resend.from_address is not set in Streamlit secrets.\n"
-            "Add it as: from_address = \"Your Name <you@yourdomain.com>\""
+            "resend.from_address is not set in Streamlit secrets. "
+            "Add: from_address = \"Your Name <you@yourdomain.com>\""
         )
-    if not re.match(r'^[^<>]+<[^@\s]+@[^@\s]+\.[^@\s]+>$|^[^@\s]+@[^@\s]+\.[^@\s]+$', from_addr):
+    if not re.match(r'^[^<>]+<[^@\s]+@[^@\s]+\.[^@\s]+>\s*$|^[^@\s]+@[^@\s]+\.[^@\s]+$', from_addr):
         raise ValueError(
-            f"resend.from_address is not a valid email: {from_addr!r}\n"
-            "Expected: 'you@yourdomain.com' or 'Your Name <you@yourdomain.com>'"
+            f"resend.from_address has invalid format: {from_addr!r} — "
+            "expected 'you@domain.com' or 'Your Name <you@domain.com>'"
         )
-    resend.Emails.send({
-        "from":    from_addr,
-        "to":      [cfg.get("recipient", "")],
-        "subject": subject,
-        "html":    body,
-    })
+    try:
+        resend.Emails.send({
+            "from":    from_addr,
+            "to":      [cfg.get("recipient", "")],
+            "subject": subject,
+            "html":    body,
+        })
+    except Exception as exc:
+        raise ValueError(f"Resend rejected from={from_addr!r}: {exc}") from exc
 
 
 # ── ntfy.sh push ──────────────────────────────────────────────────────────────
