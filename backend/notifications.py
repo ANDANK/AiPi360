@@ -18,7 +18,7 @@ def _send_email(subject: str, body: str) -> None:
             "resend.from_address is not set in Streamlit secrets. "
             "Add: from_address = \"Your Name <you@yourdomain.com>\""
         )
-    if not re.match(r'^[^<>]+<[^@\s]+@[^@\s]+\.[^@\s]+>\s*$|^[^@\s]+@[^@\s]+\.[^@\s]+$', from_addr):
+    if not re.match(r'^[^<>@\s]+@[^<>@\s]+\.[^<>@\s]+$|^[^<>]+<[^<>@\s]+@[^<>@\s]+\.[^<>@\s]+>$', from_addr):
         raise ValueError(
             f"resend.from_address has invalid format: {from_addr!r} — "
             "expected 'you@domain.com' or 'Your Name <you@domain.com>'"
