@@ -1035,47 +1035,131 @@ Total: ~6 presentations per school year.
         with ts2:
             st.markdown("#### 📅 Tamil School Calendar 2026-2027")
 
-            col_ref, col_add = st.columns([3, 2])
+            # Full calendar from PDF: Final PTS 2026-2027 calendar.pdf
+            _PTS_CALENDAR = [
+                # (date_str, unit, class_num, event_type, details)
+                # event_type: "class","holiday","special","ptc"
+                ("2026-08-09", "Unit 1", "1st Class",  "class",   "First day of school"),
+                ("2026-08-16", "Unit 1", "2nd Class",  "class",   ""),
+                ("2026-08-23", "Unit 1", "3rd Class",  "class",   ""),
+                ("2026-08-30", "Unit 1", "4th Class",  "class",   ""),
+                ("2026-09-05", "",       "",            "special", "STF 16th Annual Fundraiser"),
+                ("2026-09-06", "",       "",            "holiday", "Labor Day — No Class"),
+                ("2026-09-13", "Unit 1", "5th Class",  "class",   "Unit Test 1"),
+                ("2026-09-20", "Unit 1", "6th Class",  "class",   "6th Week Presentation & Parent-Teacher Conference"),
+                ("2026-09-27", "Unit 2", "1st Class",  "class",   ""),
+                ("2026-10-04", "Unit 2", "2nd Class",  "class",   ""),
+                ("2026-10-11", "Unit 2", "3rd Class",  "class",   ""),
+                ("2026-10-18", "Unit 2", "4th Class",  "class",   ""),
+                ("2026-10-25", "Unit 2", "5th Class",  "class",   "Unit Test 2"),
+                ("2026-11-01", "Unit 2", "6th Class",  "class",   "6th Week Presentation & Parent-Teacher Conference"),
+                ("2026-11-08", "",       "",            "holiday", "Deepavali — No Class"),
+                ("2026-11-15", "Unit 3", "1st Class",  "class",   ""),
+                ("2026-11-22", "",       "",            "holiday", "Thanksgiving — No Class"),
+                ("2026-11-29", "Unit 3", "2nd Class",  "class",   ""),
+                ("2026-12-06", "Unit 3", "3rd Class",  "class",   ""),
+                ("2026-12-13", "Unit 3", "4th Class",  "class",   ""),
+                ("2026-12-20", "Unit 3", "5th Class",  "class",   "Unit Test 3 & 6th Week Presentation"),
+                ("2026-12-27", "",       "",            "holiday", "Winter Break — No Class"),
+                ("2027-01-03", "",       "",            "holiday", "Winter Break — No Class"),
+                ("2027-01-07", "",       "",            "ptc",     "Parent-Teacher Conference (online via GMeet) @7PM"),
+                ("2027-01-10", "Unit 4", "1st Class",  "class",   ""),
+                ("2027-01-17", "",       "",            "holiday", "Thamizhar Thirunal — No Class"),
+                ("2027-01-24", "Unit 4", "2nd Class",  "class",   ""),
+                ("2027-01-30", "",       "",            "special", "STF 20th Year Thirukkural Competition"),
+                ("2027-01-31", "Unit 4", "3rd Class",  "class",   ""),
+                ("2027-02-07", "Unit 4", "4th Class",  "class",   ""),
+                ("2027-02-14", "Unit 4", "5th Class",  "class",   "Unit Test 4"),
+                ("2027-02-21", "Unit 4", "6th Class",  "class",   "6th Week Presentation & Parent-Teacher Conference"),
+                ("2027-02-28", "Unit 5", "1st Class",  "class",   "Drama Practice"),
+                ("2027-03-07", "Unit 5", "2nd Class",  "class",   "Drama Practice"),
+                ("2027-03-14", "",       "",            "holiday", "Spring Break — No Class"),
+                ("2027-03-21", "Unit 5", "3rd Class",  "class",   "Drama Practice"),
+                ("2027-03-28", "Unit 5", "4th Class",  "class",   "Drama Practice"),
+                ("2027-04-04", "Unit 5", "5th Class",  "class",   "Drama Practice"),
+                ("2027-04-11", "Unit 5", "6th Class",  "class",   "Annual Day"),
+                ("2027-04-18", "Unit 6", "1st Class",  "class",   "Final Test"),
+                ("2027-04-25", "Unit 6", "2nd Class",  "class",   "Report Cards & Certificates"),
+            ]
 
-            with col_ref:
-                st.info("📎 Upload your 2026-2027 calendar PDF to populate dates automatically.")
-                uploaded_cal = st.file_uploader("Upload Tamil School Calendar PDF", type=["pdf"], key="tamil_cal_upload")
-                if uploaded_cal:
-                    st.success("Calendar uploaded. Claude will extract dates — feature coming soon.")
+            _TYPE_STYLE_TS = {
+                "class":   ("#f0fdf4", "#16a34a", "📗"),
+                "holiday": ("#fef9c3", "#92400e", "🚫"),
+                "special": ("#eff6ff", "#1d4ed8", "🌟"),
+                "ptc":     ("#fdf4ff", "#7c3aed", "👩‍🏫"),
+            }
 
-            with col_add:
-                st.markdown("##### ➕ Add Calendar Event")
-                with st.form("tamil_cal_form"):
-                    ev_title = st.text_input("Event")
-                    ev_date  = st.date_input("Date", value=date.today())
-                    ev_type  = st.selectbox("Type", ["Class Day","Holiday","No Class","Presentation","Competition","Other"])
-                    if st.form_submit_button("Add", type="primary"):
-                        from services.reminders import add as add_rem
-                        add_rem("tamil", ev_title, ev_type, ev_date, remind_days=1, frequency="once", channels="push")
-                        st.success(f"✅ Added: {ev_title}")
-                        st.rerun()
+            today_d = date.today()
 
-            st.markdown("---")
-            st.markdown("##### 📆 Saved Tamil School Events")
-            try:
-                rem_df_t = read_sheet("reminders")
-                if not rem_df_t.empty:
-                    tamil_evs = rem_df_t[rem_df_t["section"].str.lower() == "tamil"].copy()
-                    if tamil_evs.empty:
-                        st.info("No events added yet. Use the form above or upload the calendar PDF.")
-                    else:
-                        tamil_evs["due_date"] = pd.to_datetime(tamil_evs["due_date"], errors="coerce").dt.date
-                        tamil_evs = tamil_evs.sort_values("due_date")
-                        st.dataframe(
-                            tamil_evs[["title","message","due_date","status"]].rename(
-                                columns={"title":"Event","message":"Type","due_date":"Date","status":"Status"}
-                            ),
-                            use_container_width=True, hide_index=True,
-                        )
-                else:
-                    st.info("No events yet.")
-            except Exception:
-                st.info("Connect Google Sheets to see events.")
+            # ── Upcoming (next 3) ─────────────────────────────────────────────
+            upcoming = [
+                r for r in _PTS_CALENDAR
+                if date.fromisoformat(r[0]) >= today_d
+            ][:3]
+
+            if upcoming:
+                st.markdown("##### 🔔 Coming Up")
+                up_cols = st.columns(len(upcoming))
+                for ci, (ds, unit, cls, etype, detail) in enumerate(upcoming):
+                    bg, col_c, ico = _TYPE_STYLE_TS[etype]
+                    d = date.fromisoformat(ds)
+                    days_away = (d - today_d).days
+                    tag = "Today!" if days_away == 0 else (f"In {days_away}d" if days_away <= 7 else d.strftime("%b %d"))
+                    title = detail if detail else (f"{unit} · {cls}" if cls else unit)
+                    up_cols[ci].markdown(
+                        f'<div style="background:{bg};border:1px solid {col_c};border-radius:10px;padding:12px;text-align:center;">'
+                        f'<div style="font-size:18px">{ico}</div>'
+                        f'<div style="font-size:11px;color:{col_c};font-weight:700;">{tag}</div>'
+                        f'<div style="font-size:12px;font-weight:600;margin-top:2px;">{d.strftime("%a, %b %d")}</div>'
+                        f'<div style="font-size:11px;color:#64748b;margin-top:2px;">{title}</div>'
+                        '</div>',
+                        unsafe_allow_html=True,
+                    )
+                st.markdown("")
+
+            # ── Full calendar by unit ─────────────────────────────────────────
+            cal_view, holiday_view = st.tabs(["📋 Full Schedule", "🚫 Holidays & Special"])
+
+            with cal_view:
+                current_unit = None
+                for ds, unit, cls, etype, detail in _PTS_CALENDAR:
+                    if etype not in ("class", "ptc"):
+                        continue
+                    if unit and unit != current_unit:
+                        current_unit = unit
+                        st.markdown(f"**── {unit} ──**")
+                    d        = date.fromisoformat(ds)
+                    bg, col_c, ico = _TYPE_STYLE_TS[etype]
+                    is_past  = d < today_d
+                    row_bg   = "#f8fafc" if is_past else bg
+                    opacity  = "0.55" if is_past else "1"
+                    label    = f"{cls}" if cls else "Conference"
+                    detail_s = f" — {detail}" if detail else ""
+                    st.markdown(
+                        f'<div style="background:{row_bg};border-left:3px solid {col_c};'
+                        f'border-radius:6px;padding:6px 12px;margin-bottom:4px;opacity:{opacity};">'
+                        f'<span style="font-size:12px;font-weight:600;color:{col_c};">{ico} {d.strftime("%a, %b %d, %Y")}</span>'
+                        f'<span style="font-size:12px;color:#374151;"> · {label}{detail_s}</span>'
+                        '</div>',
+                        unsafe_allow_html=True,
+                    )
+
+            with holiday_view:
+                for ds, unit, cls, etype, detail in _PTS_CALENDAR:
+                    if etype not in ("holiday", "special"):
+                        continue
+                    d        = date.fromisoformat(ds)
+                    bg, col_c, ico = _TYPE_STYLE_TS[etype]
+                    is_past  = d < today_d
+                    opacity  = "0.55" if is_past else "1"
+                    st.markdown(
+                        f'<div style="background:{bg};border-left:3px solid {col_c};'
+                        f'border-radius:6px;padding:6px 12px;margin-bottom:4px;opacity:{opacity};">'
+                        f'<span style="font-size:12px;font-weight:600;color:{col_c};">{ico} {d.strftime("%a, %b %d, %Y")}</span>'
+                        f'<span style="font-size:12px;color:#374151;"> · {detail}</span>'
+                        '</div>',
+                        unsafe_allow_html=True,
+                    )
 
             st.markdown("---")
             st.markdown("##### 📌 Known Key Dates (2025-2026 reference)")
