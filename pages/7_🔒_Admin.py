@@ -375,7 +375,7 @@ with tab_help:
         _feature_row("📥 Balance Input",      "Enter/upload account balances. AI auto-reads from statements.")
         _feature_row("📊 Analytics",          "Monthly trend, year-end totals, Self vs Spouse comparison.")
         _feature_row("🔮 Projections",        "Retirement projections to 2040 with IRS contribution modeling.")
-        _feature_row("🏦 Account Management", "Add accounts with broker + tax status. Manual entries (real estate, auto). Broker management.")
+        _feature_row("⚙️ Setup",              "Add accounts with broker + tax status. Manual entries (real estate, auto). Broker management.")
         _feature_row("🔔 Market Alerts",      "Trigger conditions for SPY/QQQ drops. Notified via ntfy push.")
         st.markdown("**Google Sheets tabs used:**")
         st.markdown("`accounts` · `account_balances` · `market_alerts` · `brokers` · `manual_accounts`")

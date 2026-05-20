@@ -185,7 +185,7 @@ else:                   display_accts = all_accts
 _no_accts_msg = ""
 if not display_accts:
     kind = "retirement" if view == _VIEW_RET else ("non-retirement" if view == _VIEW_NON else "")
-    _no_accts_msg = f"No active {kind} accounts. Use the **🏦 Account Management** tab to add some."
+    _no_accts_msg = f"No active {kind} accounts. Use the **⚙️ Setup** tab to add some."
 
 def _split_by_owner(accts):
     s = sorted([a for a in accts if a.get("owner")=="self"],   key=lambda a: a.get("account_type",""))
@@ -231,8 +231,8 @@ _spouse_now  = (sum(v for k,v in latest.items() if k not in _excluded and k in d
 if _no_accts_msg:
     st.warning(_no_accts_msg)
 
-tab_bal, tab_analytics, tab_proj, tab_mgmt, tab_alerts = st.tabs([
-    "📥 Balance Input", "📊 Analytics", "🔮 Projections", "🏦 Account Management", "🔔 Market Alerts"
+tab_bal, tab_analytics, tab_proj, tab_alerts, tab_mgmt = st.tabs([
+    "📥 Balance Input", "📊 Analytics", "🔮 Projections", "🔔 Market Alerts", "⚙️ Setup"
 ])
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -846,10 +846,10 @@ with tab_proj:
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# TAB 4 — Account Management
+# TAB 5 — Setup (Accounts, Manual Entries, Brokers)
 # ═══════════════════════════════════════════════════════════════════════════════
 with tab_mgmt:
-    st.markdown("#### 🏦 Account Management")
+    st.markdown("#### ⚙️ Setup")
     sub_accts, sub_manual, sub_brokers = st.tabs([
         "🏦 Accounts", "📝 Manual Entries", "🏢 Brokers"
     ])
@@ -1019,7 +1019,7 @@ with tab_mgmt:
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# TAB 5 — Market Alerts
+# TAB 4 — Market Alerts
 # ═══════════════════════════════════════════════════════════════════════════════
 with tab_alerts:
     st.markdown("#### 🔔 Market Alerts")
