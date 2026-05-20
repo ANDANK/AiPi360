@@ -10,6 +10,8 @@ from backend.gsheet import read_sheet, append_row, overwrite_sheet
 ACCOUNTS_TAB = "accounts"
 BALANCES_TAB = "account_balances"
 ALERTS_TAB   = "market_alerts"
+BROKERS_TAB  = "brokers"
+MANUAL_TAB   = "manual_accounts"
 
 ACCOUNT_TYPES = {
     "brokerage":       ("📈", "Brokerage"),
@@ -36,6 +38,30 @@ RETIREMENT_TYPES = frozenset({
     "hsa", "sep_ira", "solo_401k",
 })
 RETIREMENT_ACCOUNT_TYPES = RETIREMENT_TYPES   # alias used in the page
+
+_TAX_STATUS_MAP: dict[str, str] = {
+    "roth_ira": "tax_free",     "roth_401k": "tax_free",
+    "hsa": "tax_free",          "fsa": "tax_free",
+    "traditional_ira": "tax_deferred", "401k": "tax_deferred",
+    "sep_ira": "tax_deferred",  "solo_401k": "tax_deferred",
+    "brokerage": "taxable",     "savings": "taxable",
+    "checking": "taxable",      "crypto": "taxable",
+    "treasury": "taxable",      "cd": "taxable",
+    "real_estate": "taxable",   "auto": "taxable",  "mortgage": "taxable",
+}
+
+TAX_STATUS_LABELS: dict[str, tuple[str, str]] = {
+    "tax_free":     ("🟢", "Tax-Free"),
+    "tax_deferred": ("🟡", "Tax-Deferred"),
+    "taxable":      ("🔵", "Taxable"),
+}
+
+_DEFAULT_BROKERS = ["Schwab", "Fidelity", "Robinhood", "Vanguard", "Webull", "E*Trade"]
+
+
+def auto_tax_status(atype: str) -> str:
+    return _TAX_STATUS_MAP.get(str(atype).lower(), "taxable")
+
 
 PROJECTION_END_YEAR = 2040
 DEFAULT_SELF_DOB    = date(1975, 1,  1)
@@ -85,9 +111,11 @@ def list_accounts(active_only: bool = True) -> pd.DataFrame:
     return df
 
 
-def add_account(name: str, atype: str, owner: str) -> str:
+def add_account(name: str, atype: str, owner: str, broker: str = "", tax_stat: str = "") -> str:
     aid = str(uuid.uuid4())[:8]
-    append_row(ACCOUNTS_TAB, [aid, name, atype, owner, "TRUE"])
+    if not tax_stat:
+        tax_stat = auto_tax_status(atype)
+    append_row(ACCOUNTS_TAB, [aid, name, atype, owner, "TRUE", broker, tax_stat])
     return aid
 
 
@@ -95,6 +123,73 @@ def deactivate_account(account_id: str) -> None:
     df = read_sheet(ACCOUNTS_TAB)
     df.loc[df["account_id"] == account_id, "active"] = "FALSE"
     overwrite_sheet(ACCOUNTS_TAB, df)
+
+
+# ── Broker CRUD ───────────────────────────────────────────────────────────────
+
+def list_brokers(active_only: bool = False) -> pd.DataFrame:
+    df = read_sheet(BROKERS_TAB)
+    if df.empty:
+        return df
+    if active_only:
+        df = df[df["active"].astype(str).str.upper().isin(["TRUE", "1", "YES"])]
+    return df
+
+
+def add_broker(name: str) -> str:
+    bid = str(uuid.uuid4())[:8]
+    append_row(BROKERS_TAB, [bid, name, "TRUE"])
+    return bid
+
+
+def toggle_broker(broker_id: str) -> None:
+    df = read_sheet(BROKERS_TAB)
+    if df.empty:
+        return
+    mask    = df["broker_id"] == broker_id
+    current = df.loc[mask, "active"].values[0] if mask.any() else "TRUE"
+    new_val = "FALSE" if str(current).upper() in ("TRUE", "1", "YES") else "TRUE"
+    df.loc[mask, "active"] = new_val
+    overwrite_sheet(BROKERS_TAB, df)
+
+
+def seed_brokers() -> None:
+    df = read_sheet(BROKERS_TAB)
+    if not df.empty:
+        return
+    for name in _DEFAULT_BROKERS:
+        add_broker(name)
+
+
+# ── Manual entries ────────────────────────────────────────────────────────────
+
+def save_manual_entry(
+    account_name: str,
+    owner: str,
+    category: str,
+    value: float,
+    notes: str = "",
+    entry_date: Optional[date] = None,
+) -> None:
+    if entry_date is None:
+        entry_date = date.today()
+    append_row(MANUAL_TAB, [
+        entry_date.isoformat(), account_name, owner, category,
+        float(value), notes, datetime.now().isoformat(),
+    ])
+
+
+def list_manual_entries() -> pd.DataFrame:
+    return read_sheet(MANUAL_TAB)
+
+
+def latest_manual_balances() -> pd.DataFrame:
+    df = list_manual_entries()
+    if df.empty:
+        return pd.DataFrame()
+    df["value"]      = pd.to_numeric(df["value"], errors="coerce").fillna(0)
+    df["entry_date"] = pd.to_datetime(df["entry_date"], errors="coerce")
+    return df.sort_values("entry_date").groupby("account_name").last().reset_index()
 
 
 # ── Balance snapshots ─────────────────────────────────────────────────────────

@@ -20,8 +20,10 @@ from services.accounts import (
     list_accounts, add_account, deactivate_account,
     save_balances, load_balances, latest_balances,
     list_alerts, add_alert, delete_alert,
-    icon as acc_icon, label as acc_label, is_retirement,
-    ACCOUNT_TYPES, RETIREMENT_ACCOUNT_TYPES, IRS_LIMITS,
+    list_brokers, add_broker, toggle_broker, seed_brokers,
+    save_manual_entry, list_manual_entries, latest_manual_balances,
+    icon as acc_icon, label as acc_label, is_retirement, auto_tax_status,
+    ACCOUNT_TYPES, RETIREMENT_ACCOUNT_TYPES, IRS_LIMITS, TAX_STATUS_LABELS,
     DEFAULT_SELF_DOB, DEFAULT_SPOUSE_DOB, PROJECTION_END_YEAR,
     monthly_totals, yearend_totals, project_retirement,
 )
@@ -222,7 +224,7 @@ _spouse_now  = sum(v for k,v in latest.items() if k not in _excluded and k in di
 
 # ── Tabs ──────────────────────────────────────────────────────────────────────
 tab_bal, tab_analytics, tab_proj, tab_mgmt, tab_alerts = st.tabs([
-    "📥 Balance Input", "📊 Analytics", "🔮 Projections", "⚙️ Manage Accounts", "🔔 Market Alerts"
+    "📥 Balance Input", "📊 Analytics", "🔮 Projections", "🏦 Account Management", "🔔 Market Alerts"
 ])
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -836,39 +838,176 @@ with tab_proj:
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# TAB 4 — Manage Accounts
+# TAB 4 — Account Management
 # ═══════════════════════════════════════════════════════════════════════════════
 with tab_mgmt:
-    st.markdown("#### ⚙️ Manage Accounts")
-    if not accounts_df.empty:
-        st.dataframe(
-            accounts_df[["account_id","account_name","account_type","owner","active"]],
-            use_container_width=True, hide_index=True,
-        )
-        st.markdown("**Deactivate an account:**")
-        sel = st.selectbox("Select account", accounts_df["account_id"].tolist(),
-                           format_func=lambda x: accounts_df[accounts_df["account_id"]==x]["account_name"].values[0]
-                                                 if len(accounts_df[accounts_df["account_id"]==x]) else x)
-        if st.button("🔴 Deactivate", type="secondary"):
-            deactivate_account(sel)
-            st.success("Account deactivated.")
-            _accounts.clear(); st.rerun()
-    else:
-        st.info("No accounts yet. Add one below.")
+    st.markdown("#### 🏦 Account Management")
+    sub_accts, sub_manual, sub_brokers = st.tabs([
+        "🏦 Accounts", "📝 Manual Entries", "🏢 Brokers"
+    ])
 
-    st.markdown("---")
-    with st.expander("➕ Add New Account"):
-        with st.form("add_account_form"):
-            c1, c2, c3 = st.columns(3)
-            with c1: aname  = st.text_input("Account Name")
-            with c2: atype  = st.selectbox("Type", list(ACCOUNT_TYPES.keys()),
-                                            format_func=lambda x: f"{acc_icon(x)} {acc_label(x)}")
-            with c3: aowner = st.selectbox("Owner", ["self","spouse","joint"])
-            if st.form_submit_button("Add Account", type="primary"):
-                if aname:
-                    aid = add_account(aname, atype, aowner)
-                    st.success(f"✅ Added: {aname} ({aid})")
-                    _accounts.clear(); st.rerun()
+    # ── Accounts ──────────────────────────────────────────────────────────────
+    with sub_accts:
+        all_df = list_accounts(active_only=False)
+        if not all_df.empty:
+            owner_colors = {"self": "#059669", "spouse": "#d97706", "joint": "#2563eb"}
+            for _, row in all_df.iterrows():
+                aid       = row["account_id"]
+                atype     = row.get("account_type", "")
+                aowner    = row.get("owner", "")
+                broker    = str(row.get("broker_name", row.get("broker", "")) or "")
+                tstat     = str(row.get("tax_status", "") or "") or auto_tax_status(atype)
+                is_active = str(row.get("active", "TRUE")).upper() in ("TRUE", "1", "YES")
+                ts_icon, ts_label = TAX_STATUS_LABELS.get(tstat, ("🔵", tstat.replace("_", " ").title()))
+                owner_color = owner_colors.get(aowner, "#64748b")
+                card_bg     = "#f0fdf4" if is_active else "#f8fafc"
+                card_border = "rgba(16,185,129,0.3)" if is_active else "#e2e8f0"
+                badge_color = "#059669" if is_active else "#94a3b8"
+                badge_text  = "🟢 Active" if is_active else "⚫ Inactive"
+
+                c_card, c_btn = st.columns([7, 1])
+                with c_card:
+                    broker_part = f' &nbsp;·&nbsp; 🏢 {broker}' if broker else ''
+                    st.markdown(
+                        f'<div style="background:{card_bg};border:1px solid {card_border};'
+                        f'border-radius:10px;padding:10px 14px;margin-bottom:6px;">'
+                        f'<span style="font-size:18px">{acc_icon(atype)}</span>'
+                        f'<span style="font-size:14px;font-weight:700;color:#1e293b;margin-left:8px">'
+                        f'{row["account_name"]}</span>'
+                        f'<span style="font-size:11px;color:#64748b;margin-left:6px">· {acc_label(atype)}</span>'
+                        f'<span style="font-size:11px;font-weight:600;color:{owner_color};margin-left:10px">'
+                        f'{aowner.title()}</span>'
+                        f'<span style="font-size:10px;color:{badge_color};margin-left:12px;'
+                        f'background:rgba(0,0,0,0.04);border-radius:6px;padding:1px 7px">{badge_text}</span>'
+                        f'<br><span style="font-size:11px;color:#64748b;margin-top:3px;display:inline-block">'
+                        f'{ts_icon} {ts_label}{broker_part}'
+                        f'</span></div>',
+                        unsafe_allow_html=True,
+                    )
+                with c_btn:
+                    if is_active and st.button("🔴", key=f"deact_{aid}", help="Deactivate"):
+                        deactivate_account(aid)
+                        st.success("Deactivated.")
+                        _accounts.clear(); st.rerun()
+        else:
+            st.info("No accounts yet. Add one below.")
+
+        st.markdown("---")
+        with st.expander("➕ Add New Account", expanded=False):
+            brokers_df_add = list_brokers()
+            br_opts = ["— None —"] + (brokers_df_add["broker_name"].tolist() if not brokers_df_add.empty else [])
+            with st.form("add_account_form"):
+                c1, c2, c3 = st.columns(3)
+                with c1: aname  = st.text_input("Account Name")
+                with c2: atype  = st.selectbox("Type", list(ACCOUNT_TYPES.keys()),
+                                               format_func=lambda x: f"{acc_icon(x)} {acc_label(x)}")
+                with c3: aowner = st.selectbox("Owner", ["self", "spouse", "joint"])
+                c4, c5 = st.columns(2)
+                with c4:
+                    broker_sel = st.selectbox("Broker", br_opts)
+                    broker_val = "" if broker_sel == "— None —" else broker_sel
+                with c5:
+                    ts_keys = list(TAX_STATUS_LABELS.keys())
+                    tstat_sel = st.selectbox(
+                        "Tax Status",
+                        ts_keys,
+                        index=2,
+                        format_func=lambda k: f"{TAX_STATUS_LABELS[k][0]} {TAX_STATUS_LABELS[k][1]}",
+                        help="Auto-set by type — adjust if needed",
+                    )
+                if st.form_submit_button("Add Account", type="primary"):
+                    if aname:
+                        aid = add_account(aname, atype, aowner, broker=broker_val, tax_stat=tstat_sel)
+                        st.success(f"✅ Added: {aname} ({aid})")
+                        _accounts.clear(); st.rerun()
+                    else:
+                        st.warning("Enter an account name.")
+
+    # ── Manual Entries ────────────────────────────────────────────────────────
+    with sub_manual:
+        st.caption("Track real estate, auto, home value, liabilities, and other non-brokerage assets.")
+        with st.expander("➕ Add Manual Entry", expanded=True):
+            with st.form("add_manual_form"):
+                mc1, mc2, mc3 = st.columns(3)
+                with mc1: m_name  = st.text_input("Asset / Account Name", placeholder="e.g. Primary Home")
+                with mc2: m_owner = st.selectbox("Owner", ["self", "spouse", "joint"], key="man_owner")
+                with mc3: m_cat   = st.selectbox("Category",
+                                                  ["Real Estate", "Auto", "Home Value", "Liability",
+                                                   "Savings (External)", "Other"],
+                                                  key="man_cat")
+                mc4, mc5, mc6 = st.columns(3)
+                with mc4: m_val   = st.number_input("Value ($)", min_value=0.0, step=1000.0,
+                                                     format="%.2f", key="man_val")
+                with mc5: m_date  = st.date_input("As Of Date", value=date.today(), key="man_date")
+                with mc6: m_notes = st.text_input("Notes", placeholder="Optional", key="man_notes")
+                if st.form_submit_button("Save Entry", type="primary"):
+                    if m_name:
+                        save_manual_entry(m_name, m_owner, m_cat, m_val, m_notes, m_date)
+                        st.success(f"✅ Saved entry for {m_name}.")
+                        st.rerun()
+                    else:
+                        st.warning("Enter an asset name.")
+
+        manual_df = list_manual_entries()
+        if not manual_df.empty:
+            manual_df = manual_df.copy()
+            manual_df["value"] = pd.to_numeric(manual_df["value"], errors="coerce")
+            manual_df_disp = manual_df.sort_values("entry_date", ascending=False).reset_index(drop=True)
+            st.markdown(f"**{len(manual_df_disp)} entries**")
+            st.dataframe(
+                manual_df_disp, use_container_width=True, hide_index=True,
+                column_config={
+                    "value":      st.column_config.NumberColumn("Value", format="$%,.2f"),
+                    "entry_date": st.column_config.DateColumn("Date"),
+                },
+            )
+        else:
+            st.info("No manual entries yet.")
+
+    # ── Brokers ───────────────────────────────────────────────────────────────
+    with sub_brokers:
+        brokers_all = list_brokers()
+        if brokers_all.empty:
+            st.info("No brokers yet. Seed the defaults or add your own below.")
+            if st.button("🌱 Seed Default Brokers (Schwab, Fidelity, Robinhood, Vanguard, Webull, E*Trade)",
+                         use_container_width=True):
+                seed_brokers()
+                st.success("Default brokers added.")
+                st.rerun()
+        else:
+            st.markdown(f"**{len(brokers_all)} broker(s)**")
+            for _, br in brokers_all.iterrows():
+                bid     = br["broker_id"]
+                is_bact = str(br.get("active", "TRUE")).upper() in ("TRUE", "1", "YES")
+                bc1, bc2 = st.columns([6, 1])
+                with bc1:
+                    dot = "🟢" if is_bact else "⚫"
+                    st.markdown(
+                        f'<div style="padding:7px 12px;'
+                        f'background:{"#f0fdf4" if is_bact else "#f8fafc"};'
+                        f'border:1px solid {"#bbf7d0" if is_bact else "#e2e8f0"};'
+                        f'border-radius:8px;margin-bottom:4px">'
+                        f'{dot} <b>{br["broker_name"]}</b>'
+                        f'<span style="font-size:10px;color:#94a3b8;margin-left:8px">#{bid}</span></div>',
+                        unsafe_allow_html=True,
+                    )
+                with bc2:
+                    btn_lbl  = "🔴" if is_bact else "🟢"
+                    btn_help = "Deactivate" if is_bact else "Activate"
+                    if st.button(btn_lbl, key=f"tog_br_{bid}", help=btn_help):
+                        toggle_broker(bid); st.rerun()
+
+        st.markdown("---")
+        with st.expander("➕ Add Broker"):
+            with st.form("add_broker_form"):
+                br_name = st.text_input("Broker Name")
+                if st.form_submit_button("Add Broker", type="primary"):
+                    if br_name:
+                        add_broker(br_name.strip())
+                        st.success(f"✅ Added: {br_name}")
+                        st.rerun()
+                    else:
+                        st.warning("Enter a broker name.")
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
