@@ -684,9 +684,35 @@ with tab_proj:
         )
 
     if view == _VIEW_NON:
-        st.caption("ℹ️ Non-retirement accounts projected with growth only — no IRS contribution modeling.")
+        st.caption("ℹ️ Non-retirement accounts projected with growth + any yearly contribution you set below.")
     else:
         st.caption("IRS limits: ✅ 2024–2025 confirmed · 📊 2026+ estimated. Year-end contributions.")
+
+    # ── Non-retirement contribution sliders ───────────────────────────────────
+    nonret_in_view  = [a for a in display_accts if not _is_ret(a) and a["account_id"] not in _excluded]
+    nonret_contribs: dict = {}
+    if nonret_in_view:
+        with st.expander(
+            "💼 Non-Retirement Yearly Contributions",
+            expanded=(view == _VIEW_NON),
+        ):
+            st.caption(
+                "Set a flat annual contribution for each non-retirement account "
+                "(same amount every projected year · slider in $1K steps up to $100K)."
+            )
+            nr_cols = st.columns(min(len(nonret_in_view), 3))
+            for i, acc in enumerate(nonret_in_view):
+                aid = acc["account_id"]
+                with nr_cols[i % 3]:
+                    amt = st.slider(
+                        f"{acc_icon(acc['account_type'])} {acc['account_name']}",
+                        min_value=0,
+                        max_value=100,
+                        step=1,
+                        format="$%dK",
+                        key=f"nr_contrib_{aid}",
+                    )
+                    nonret_contribs[aid] = amt * 1_000
 
     if bal_history.empty:
         st.info("No balance data yet — use the **Balance Input** tab to save your first snapshot.")
@@ -695,6 +721,7 @@ with tab_proj:
             display_accts, latest, growth_rate=growth_pct/100,
             excluded=_excluded, self_dob=self_dob, spouse_dob=spouse_dob,
             start_year=int(proj_start),
+            nonret_contributions=nonret_contribs,
         )
 
         proj_at_ty = 0.0
@@ -847,6 +874,83 @@ with tab_proj:
 
             # Full Projection Table
             with st.expander("📋 Full Projection Table", expanded=False):
+
+                # ── Assumptions summary ───────────────────────────────────────
+                st.markdown("##### 📐 Projection Assumptions")
+                ap1, ap2, ap3, ap4 = st.columns(4)
+                ap1.metric("📈 Growth Rate",  f"{growth_pct:.1f}% / yr")
+                ap2.metric("📅 Start Year",   str(int(proj_start)))
+                ap3.metric("🏁 End Year",     str(PROJECTION_END_YEAR))
+                ap4.metric("🎯 Retirement Target", _fc(target_amount, 0))
+
+                st.markdown(
+                    '<div style="font-size:13px;font-weight:700;color:#1e293b;'
+                    'margin:16px 0 8px 0">💰 Annual Contributions by Account'
+                    '<span style="font-size:11px;font-weight:400;color:#64748b;margin-left:8px">'
+                    '(average over projection period · IRS-max model)</span></div>',
+                    unsafe_allow_html=True,
+                )
+
+                _owner_meta = [
+                    ("self",   f"👤 {self_name}",   "#059669", "#f0fdf4", "#bbf7d0"),
+                    ("spouse", f"👥 {spouse_name}", "#d97706", "#fffbeb", "#fde68a"),
+                    ("joint",  "🤝 Joint",          "#2563eb", "#eff6ff", "#bfdbfe"),
+                ]
+                acols = st.columns(2)
+                col_idx = 0
+                for owner_key, owner_label, color, bg, border in _owner_meta:
+                    owner_accts = [a for a in display_accts
+                                   if a.get("owner") == owner_key
+                                   and a["account_id"] not in _excluded]
+                    if not owner_accts:
+                        continue
+                    rows_c = []
+                    for acc in owner_accts:
+                        aid     = acc["account_id"]
+                        atype   = acc.get("account_type", "")
+                        acc_proj = proj_df[proj_df["account_id"] == aid]
+                        with_c  = acc_proj[acc_proj["contribution"] > 0]["contribution"]
+                        avg_c   = float(with_c.mean()) if not with_c.empty else 0.0
+                        max_c   = float(acc_proj["contribution"].max()) if not acc_proj.empty else 0.0
+                        rows_c.append({
+                            "Account":  acc["account_name"],
+                            "Type":     acc_label(atype),
+                            "Avg / yr": avg_c,
+                            "Max / yr": max_c,
+                            "Note":     "—" if avg_c == 0 else (
+                                "Catch-up from 50" if max_c > avg_c else "Flat"
+                            ),
+                        })
+                    with acols[col_idx % 2]:
+                        st.markdown(
+                            f'<div style="background:{bg};border:1px solid {border};'
+                            f'border-radius:10px;padding:10px 14px;margin-bottom:10px;">'
+                            f'<span style="font-size:13px;font-weight:700;color:{color}">'
+                            f'{owner_label}</span></div>',
+                            unsafe_allow_html=True,
+                        )
+                        cdf = pd.DataFrame(rows_c)
+                        st.dataframe(
+                            cdf, use_container_width=True, hide_index=True,
+                            column_config={
+                                "Avg / yr": st.column_config.NumberColumn("Avg / yr", format="$%,.0f"),
+                                "Max / yr": st.column_config.NumberColumn("Max / yr", format="$%,.0f"),
+                            },
+                            height=min(300, 44 + 36 * len(cdf)),
+                        )
+                    col_idx += 1
+
+                st.caption(
+                    "**Avg / yr** = average contribution across projected years where contribution > $0  ·  "
+                    "**Max / yr** = peak year contribution  ·  "
+                    "**Catch-up from 50** = IRS limit increases at age 50 per SECURE 2.0  ·  "
+                    "**Flat** = same amount every year  ·  "
+                    "**—** = no contribution set (adjust sliders above for non-retirement accounts)  ·  "
+                    "Accounts hidden from forecast (⬜ checkbox in Balance Input) are excluded."
+                )
+
+                st.divider()
+                st.markdown("##### 📋 Year-by-Year Detail")
                 _confirmed = {y for y,v in IRS_LIMITS.items() if v.get("confirmed")}
                 tbl = proj_comb.copy()
                 tbl = tbl.merge(proj_self.rename(columns={"balance": self_name}), on="year", how="left")

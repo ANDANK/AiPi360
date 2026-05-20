@@ -328,18 +328,20 @@ def yearend_totals(df: pd.DataFrame) -> pd.DataFrame:
 # ── Projection engine ─────────────────────────────────────────────────────────
 
 def project_retirement(
-    accounts:       list[dict],
-    start_balances: dict[str, float],
-    growth_rate:    float = 0.07,
-    excluded:       Optional[set] = None,
-    self_dob:       date = DEFAULT_SELF_DOB,
-    spouse_dob:     date = DEFAULT_SPOUSE_DOB,
-    start_year:     Optional[int] = None,
-    end_year:       int = PROJECTION_END_YEAR,
+    accounts:             list[dict],
+    start_balances:       dict[str, float],
+    growth_rate:          float = 0.07,
+    excluded:             Optional[set] = None,
+    self_dob:             date = DEFAULT_SELF_DOB,
+    spouse_dob:           date = DEFAULT_SPOUSE_DOB,
+    start_year:           Optional[int] = None,
+    end_year:             int = PROJECTION_END_YEAR,
+    nonret_contributions: Optional[dict] = None,
 ) -> pd.DataFrame:
     """
     Project all accounts year-by-year to end_year.
     Each year: balance *= (1 + growth_rate), then add IRS-max contribution.
+    nonret_contributions: {account_id: yearly_amount} for non-retirement accounts.
     Returns DataFrame: year, account_id, account_name, account_type, owner,
                        balance, contribution, growth_dollars
     """
@@ -347,6 +349,8 @@ def project_retirement(
         excluded = set()
     if start_year is None:
         start_year = datetime.now().year
+    if nonret_contributions is None:
+        nonret_contributions = {}
 
     active = [a for a in accounts if a["account_id"] not in excluded]
     bals   = {a["account_id"]: float(start_balances.get(a["account_id"], 0)) for a in active}
@@ -360,6 +364,8 @@ def project_retirement(
             bal_open     = bals.get(aid, 0.0)
             growth_amt   = bal_open * growth_rate
             contrib      = get_annual_contribution(atype, owner, year, self_dob, spouse_dob)
+            if contrib == 0.0:
+                contrib = float(nonret_contributions.get(aid, 0.0))
             bal_close    = bal_open + growth_amt + contrib
             bals[aid]    = bal_close
             rows.append({
