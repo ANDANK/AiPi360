@@ -65,7 +65,7 @@ child_tab1, child_tab2 = st.tabs(["👦 Son", "👧 Daughter"])
 with child_tab1:
     st.markdown('<div class="grade-badge">Currently Grade 6 · 2026-2027</div>', unsafe_allow_html=True)
 
-    g6, g7, g8, tamil_tab, classes_tab = st.tabs(["📘 Grade 6", "📗 Grade 7", "📙 Grade 8", "🕉️ Tamil School", "📋 Classes & Fees"])
+    g6, g7, g8, tamil_tab, classes_tab, comp_tab = st.tabs(["📘 Grade 6", "📗 Grade 7", "📙 Grade 8", "🕉️ Tamil School", "📋 Classes & Fees", "🏆 Competitions"])
 
     # ── Grade 6 ───────────────────────────────────────────────────────────────
     with g6:
@@ -1984,6 +1984,427 @@ Total: ~6 presentations per school year.
                                         remind_days=0, frequency="weekly", channels="push")
                         st.success(f"✅ Added: {cname}" + (" · reminders created" if auto_remind else ""))
                         st.rerun()
+
+    # ── Competitions ──────────────────────────────────────────────────────────
+    with comp_tab:
+        st.markdown("### 🏆 Academic Competitions — Grade 6 through 8")
+        st.caption("Competitions spanning Math, Science, Speech & Debate, Writing and more · FISD / Texas focus")
+
+        cm_road, cm_math, cm_sci, cm_speech, cm_write, cm_log = st.tabs([
+            "📊 Roadmap", "🔢 Math", "🔬 Science", "🎤 Speech & Debate", "✍️ Writing & Others", "📝 My Results",
+        ])
+
+        # ── helper: competition card ──────────────────────────────────────────
+        def _comp_card(name, org, grades, when, levels, impact, stars, desc, tip=""):
+            star_html  = "⭐" * stars + "☆" * (3 - stars)
+            tip_html   = f'<div style="font-size:11px;color:#0369a1;margin-top:6px">💡 {tip}</div>' if tip else ""
+            st.markdown(f"""
+<div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:12px;
+     padding:14px 16px;margin-bottom:10px;">
+  <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:6px">
+    <span style="font-size:15px;font-weight:700;color:#1e293b">{name}</span>
+    <span style="font-size:12px;font-weight:600;color:#7c3aed;background:#ede9fe;
+          border-radius:20px;padding:2px 10px">{star_html} {impact}</span>
+  </div>
+  <div style="font-size:11px;color:#64748b;margin:4px 0 6px 0">{org} · Grades {grades} · {when}</div>
+  <div style="font-size:12px;color:#334155;margin-bottom:5px">{desc}</div>
+  <div style="font-size:11px;color:#059669;font-weight:600">📍 Levels: {levels}</div>
+  {tip_html}
+</div>""", unsafe_allow_html=True)
+
+        # ════════════════════════════════════════════════════════════════════
+        # ROADMAP
+        # ════════════════════════════════════════════════════════════════════
+        with cm_road:
+            st.markdown("#### 🗺️ Grade-by-Grade Competition Roadmap")
+
+            for grade_label, grade_color, grade_bg, items in [
+                ("Grade 6  ·  2026-2027", "#1d4ed8", "#eff6ff", [
+                    ("🔢 Math",        "MOEMS",                "School",                   "Nov–Apr",  "Build problem-solving habit"),
+                    ("🔢 Math",        "AMC 8",                "National",                 "November", "First attempt — learn the format"),
+                    ("🔢 Math",        "UIL Number Sense",     "School → District",        "Spring",   "Fast mental math — good warm-up"),
+                    ("🔬 Science",     "Science Olympiad",     "Invitational (trial)",     "Feb–Mar",  "Join school team, try invitational"),
+                    ("🎤 Speech",      "Gavel Club Contests",  "Club → Area",              "Year-round","Table Topics + Prepared Speech"),
+                    ("🎤 Speech",      "UIL Prose/Poetry",     "School → District",        "Spring",   "Strong fit with Gavel Club skills"),
+                    ("✍️ Writing",     "Scholastic Art & Writing", "Regional → National",  "Sep–Dec",  "Personal essays / short stories"),
+                    ("✍️ Writing",     "UIL Ready Writing",    "School → District",        "Spring",   "Timed editorial — pair with ELA"),
+                ]),
+                ("Grade 7  ·  2027-2028", "#059669", "#f0fdf4", [
+                    ("🔢 Math",        "MATHCOUNTS",           "School → Chapter → State", "Nov–May",  "Start serious training — Art of Problem Solving"),
+                    ("🔢 Math",        "AMC 8",                "National",                 "November", "Target: top 25% (Honor Roll)"),
+                    ("🔢 Math",        "Purple Comet Math Meet","Online Team",             "April",    "Team competition — low stakes, great practice"),
+                    ("🔢 Math",        "UIL Calculator",       "School → District",        "Spring",   "Pair with Number Sense"),
+                    ("🔬 Science",     "Science Olympiad",     "School → Invitational → Regional","Feb–May","Pick 2-3 events; build depth"),
+                    ("🎤 Speech",      "Gavel Club Contests",  "Club → Area → Division",   "Year-round","Target Area-level title"),
+                    ("🎤 Speech",      "NSDA Middle School",   "School → Regional",        "Year-round","Lincoln-Douglas or Original Oratory"),
+                    ("🎤 Speech",      "UIL Oral Reading",     "School → District",        "Spring",   "Complements Gavel skills"),
+                    ("✍️ Writing",     "Scholastic Art & Writing","Regional → National",   "Sep–Dec",  "Repeat — build a portfolio"),
+                    ("📚 Social St.",  "National History Day", "School → District → State","Oct–Mar",  "Any format: paper / exhibit / documentary"),
+                ]),
+                ("Grade 8  ·  2028-2029", "#d97706", "#fffbeb", [
+                    ("🔢 Math",        "MATHCOUNTS",           "Chapter → State → National","Nov–May", "Goal: State qualifier · National is elite"),
+                    ("🔢 Math",        "AMC 8",                "National",                 "November", "Target: MATHCOUNTS National Honor Roll"),
+                    ("🔢 Math",        "AMC 10 (prep)",        "National",                 "November", "Start practicing AMC 10 problems"),
+                    ("🔢 Math",        "UIL Math",             "School → District → State","Spring",   "Strong college-app signal if State-level"),
+                    ("🔬 Science",     "Science Olympiad",     "School → Regional → State","Feb–May",  "Target State · pick 3-4 strong events"),
+                    ("🎤 Speech",      "Gavel Club Contests",  "Club → Area → Division → District","Year-round","Target District-level — big résumé item"),
+                    ("🎤 Speech",      "NSDA Middle School",   "School → Regional → National","Year-round","National qualifier = strong HS app signal"),
+                    ("🎤 Speech",      "UIL Prose Interpretation","School → State",        "Spring",   "Performance speech — Gavel experience helps"),
+                    ("✍️ Writing",     "Scholastic Art & Writing","Gold Key target",       "Sep–Dec",  "Gold Key = national recognition"),
+                    ("✍️ Writing",     "UIL Ready Writing",    "School → State",           "Spring",   "State qualifier looks strong on HS apps"),
+                    ("📚 Social St.",  "National History Day", "District → State → National","Oct–Mar","National = extremely impressive"),
+                    ("🔡 Spelling",    "Scripps Spelling Bee", "School → Regional → National","Jan–May","If strong speller — national TV exposure"),
+                ]),
+            ]:
+                st.markdown(
+                    f'<div style="background:{grade_bg};border-left:4px solid {grade_color};'
+                    f'border-radius:0 10px 10px 0;padding:10px 16px;margin:16px 0 8px 0;">'
+                    f'<span style="font-size:14px;font-weight:700;color:{grade_color}">{grade_label}</span></div>',
+                    unsafe_allow_html=True,
+                )
+                rows = [{"Subject": s, "Competition": c, "Levels": lv, "When": w, "Focus / Tip": t}
+                        for s, c, lv, w, t in items]
+                st.dataframe(
+                    rows, use_container_width=True, hide_index=True,
+                    column_config={
+                        "Subject":      st.column_config.TextColumn(width="small"),
+                        "Competition":  st.column_config.TextColumn(width="medium"),
+                        "Levels":       st.column_config.TextColumn(width="medium"),
+                        "When":         st.column_config.TextColumn(width="small"),
+                        "Focus / Tip":  st.column_config.TextColumn(width="large"),
+                    },
+                )
+
+            st.divider()
+            st.markdown("##### 🎓 College Admissions Impact Summary")
+            st.markdown("""
+<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:8px">
+  <div style="background:#fef2f2;border:1px solid #fecaca;border-radius:10px;padding:12px">
+    <div style="font-weight:700;color:#dc2626;margin-bottom:6px">⭐⭐⭐ High Impact</div>
+    <div style="font-size:12px;color:#334155;line-height:1.6">
+      MATHCOUNTS State/National<br>AMC 8 Honor Roll · AMC 10 AIME<br>
+      Science Olympiad State/National<br>NSDA National qualifier<br>
+      Scholastic Gold Key<br>National History Day National
+    </div>
+  </div>
+  <div style="background:#fefce8;border:1px solid #fde047;border-radius:10px;padding:12px">
+    <div style="font-weight:700;color:#ca8a04;margin-bottom:6px">⭐⭐ Solid Signal</div>
+    <div style="font-size:12px;color:#334155;line-height:1.6">
+      MATHCOUNTS Chapter qualifier<br>UIL District/Regional placements<br>
+      Gavel Club Area/Division title<br>Purple Comet strong score<br>
+      Scripps Regional qualifier
+    </div>
+  </div>
+  <div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:10px;padding:12px">
+    <div style="font-weight:700;color:#059669;margin-bottom:6px">⭐ Foundation</div>
+    <div style="font-size:12px;color:#334155;line-height:1.6">
+      MOEMS participation<br>AMC 8 first attempts<br>
+      UIL School-level events<br>Gavel Club contests<br>
+      Scholastic participation
+    </div>
+  </div>
+</div>""", unsafe_allow_html=True)
+
+        # ════════════════════════════════════════════════════════════════════
+        # MATH
+        # ════════════════════════════════════════════════════════════════════
+        with cm_math:
+            st.markdown("#### 🔢 Math Competitions")
+            st.caption("Pipeline: MOEMS / AMC 8 → MATHCOUNTS → AMC 10 → AIME → USAJMO")
+
+            _comp_card(
+                "MATHCOUNTS", "MATHCOUNTS Foundation", "6–8", "Nov–May",
+                "School → Chapter → State → National",
+                "Very High", 3,
+                "The premier middle-school math competition in the US. "
+                "School team (4 members) + individual. Chapter and State rounds are qualifying. "
+                "National competition is elite — top ~200 students nationwide.",
+                "Register through school. Train with Art of Problem Solving (AoPS) MATHCOUNTS prep books. "
+                "Start in Grade 6 to build up to a strong Grade 8 run.",
+            )
+            _comp_card(
+                "AMC 8", "MAA (Math Association of America)", "6–8", "November",
+                "National (no qualifying rounds)",
+                "High", 3,
+                "25 multiple-choice questions in 40 min. Top scorers earn Honor Roll and Distinguished Honor Roll. "
+                "Feeds into the AMC 10/12 → AIME → USAJMO pipeline that colleges notice.",
+                "Free to take at school. Great benchmark. Aim for 18+ in Grade 6, 20+ in Grade 7, 22+ in Grade 8.",
+            )
+            _comp_card(
+                "AMC 10 (Preparation)", "MAA", "9–10 (prep in Grade 8)", "November",
+                "National → AIME qualifier",
+                "Very High", 3,
+                "Start solving AMC 10 practice problems in Grade 8. "
+                "Qualifying for AIME (score ≥ 107) is a significant high-school resume item. "
+                "Making USAJMO is Ivy-level differentiation.",
+                "Use AoPS AMC 10 prep. Solve 2016–2024 past papers by Grade 8.",
+            )
+            _comp_card(
+                "MOEMS (Math Olympiad for Elementary & Middle Schools)", "MOEMS", "4–8", "Nov–Apr",
+                "School (5 monthly contests)",
+                "Good", 1,
+                "5 monthly contests (Nov–Mar), each with 5 open-ended problems. "
+                "Score earns Gold/Silver/Bronze patches. "
+                "Excellent entry-level competition to build problem-solving habits.",
+                "School registers as a team. Very low pressure — good for Grade 6 warm-up.",
+            )
+            _comp_card(
+                "Purple Comet Math Meet", "Purdue University", "5–12", "April",
+                "Online Team (school or open)",
+                "Solid", 2,
+                "30-problem team competition (30 min). Free online. "
+                "Good for building team problem-solving and benchmarking against other schools.",
+                "Form a team of up to 6. Register at purplecomet.org.",
+            )
+            st.markdown("---")
+            st.markdown("##### 📐 UIL Math Events (Texas)")
+            st.caption("UIL competitions run school → district → regional → state each spring.")
+            for ev, desc in [
+                ("Number Sense", "80 questions in 10 min — pure mental math speed. Great for Grades 6–8."),
+                ("Calculator Applications", "Computation + applications using a calculator. Grade 7 onwards."),
+                ("Mathematics", "Concepts + problem-solving, 30 questions/40 min. Strong alignment with school curriculum."),
+            ]:
+                st.markdown(
+                    f'<div style="background:#f0f9ff;border-left:3px solid #0ea5e9;border-radius:0 8px 8px 0;'
+                    f'padding:8px 12px;margin-bottom:6px;font-size:13px">'
+                    f'<b>{ev}</b> — <span style="color:#334155">{desc}</span></div>',
+                    unsafe_allow_html=True,
+                )
+
+        # ════════════════════════════════════════════════════════════════════
+        # SCIENCE
+        # ════════════════════════════════════════════════════════════════════
+        with cm_sci:
+            st.markdown("#### 🔬 Science Competitions")
+
+            _comp_card(
+                "Science Olympiad", "Science Olympiad Inc.", "6–12", "Nov–May",
+                "School Invitational → Regional → State → National",
+                "Very High", 3,
+                "Team of 15 competes across 23 events spanning biology, chemistry, physics, earth science, "
+                "engineering and technology. Each student specializes in 5–7 events. "
+                "One of the most recognized STEM competitions in the US — colleges love it.",
+                "Join school team in Grade 6 as an Invitational trial. "
+                "Build depth in 2–3 events per year. Target State in Grade 8.",
+            )
+            _comp_card(
+                "UIL Science", "UIL Texas", "6–8", "Spring",
+                "School → District → Regional → State",
+                "Solid", 2,
+                "Biology, Chemistry, Physics and General Science events. "
+                "Multiple-choice format. Strong alignment with TEKS curriculum.",
+                "Pair with school science class. District placement = solid middle-school résumé item.",
+            )
+            _comp_card(
+                "FIRST LEGO League (FLL)", "FIRST", "4–8", "Sep–Dec",
+                "School/Club → Regional → State → World",
+                "Solid", 2,
+                "Team builds and programs a LEGO robot to complete missions, plus researches a real-world "
+                "STEM problem and presents solutions. Encourages creativity and collaboration.",
+                "Great for Grades 6–7. Check FISD robotics clubs. "
+                "Strong college signal if team reaches World Championship.",
+            )
+            _comp_card(
+                "Texas Science & Engineering Fair (TXSEF)", "Texas Academy of Science", "6–12", "Feb–Mar",
+                "School → Regional → State → Regeneron ISEF",
+                "High", 3,
+                "Individual research project in any STEM field. "
+                "State winner advances to Regeneron ISEF — the world's largest pre-college science fair. "
+                "Winning at any level is impressive for selective high schools and colleges.",
+                "Start small in Grade 6 with a focused question. Build on it each year. "
+                "Pick a topic you're genuinely curious about.",
+            )
+
+        # ════════════════════════════════════════════════════════════════════
+        # SPEECH & DEBATE
+        # ════════════════════════════════════════════════════════════════════
+        with cm_speech:
+            st.markdown("#### 🎤 Speech & Debate Competitions")
+            st.info(
+                "**Gavel Club member** — Toastmasters' youth program. "
+                "Club contest experience directly feeds into UIL and NSDA speech events. "
+                "Gavel Club skills (prepared speech, table topics, evaluations) are transferable to every competition below.",
+                icon="🗣️",
+            )
+
+            _comp_card(
+                "Gavel Club Speech Contests", "Toastmasters International (Youth)", "6–12", "Year-round",
+                "Club → Area → Division → District",
+                "Solid", 2,
+                "Toastmasters runs formal speech contests at each level. "
+                "Events include: Prepared Speech (5–7 min), Table Topics (impromptu 1–2 min), "
+                "Humorous Speech, Evaluation Contest, and International Speech Contest. "
+                "District-level winner is a strong recognition for a middle-schooler.",
+                "Table Topics and Prepared Speech contests run multiple times per year. "
+                "Focus on Area title in Grade 7 and Division/District in Grade 8.",
+            )
+            _comp_card(
+                "NSDA Middle School Speech & Debate", "National Speech & Debate Association", "6–8", "Year-round",
+                "School → Tournament → Regional → National",
+                "Very High", 3,
+                "NSDA offers middle school events: Original Oratory, Expository Speaking, "
+                "Storytelling, Debate (Public Forum, Lincoln-Douglas intro). "
+                "Earning NSDA points and qualifying for National Tournament is a standout achievement.",
+                "Register through school coach or independently at speechanddebate.org. "
+                "Original Oratory pairs perfectly with Gavel Club prepared speech experience.",
+            )
+
+            st.markdown("---")
+            st.markdown("##### 📋 UIL Speech Events (Texas — Spring Season)")
+            st.caption("All UIL speech events follow the School → District → Regional → State ladder.")
+            for ev, grades, desc in [
+                ("Prose Interpretation", "6–8",
+                 "Read aloud a published prose passage (5 min max). Judged on delivery, expression, and interpretation. "
+                 "Gavel Club vocal variety and body language skills apply directly."),
+                ("Poetry Interpretation", "6–8",
+                 "Perform a published poem with voice and gesture. Similar to Prose but with poetic rhythm."),
+                ("Oral Reading", "6–8",
+                 "Sight-read an unfamiliar passage aloud with expression. Tests spontaneous delivery."),
+                ("Informative Speaking", "6–8",
+                 "Original 4–6 min speech with at least one visual aid. "
+                 "Strong overlap with Gavel Club Prepared Speech pathway."),
+                ("Persuasive Speaking", "6–8",
+                 "Original persuasive speech, 4–6 min. "
+                 "Same format as NSDA Original Oratory — can prepare one speech for both."),
+            ]:
+                st.markdown(
+                    f'<div style="background:#fdf4ff;border-left:3px solid #a21caf;border-radius:0 8px 8px 0;'
+                    f'padding:9px 13px;margin-bottom:7px;font-size:13px">'
+                    f'<b>{ev}</b> <span style="font-size:11px;color:#94a3b8">· Grades {grades}</span><br>'
+                    f'<span style="color:#334155">{desc}</span></div>',
+                    unsafe_allow_html=True,
+                )
+
+            st.markdown("---")
+            _comp_card(
+                "Texas Forensic Association (TFA)", "TFA", "6–12", "Sep–May",
+                "Tournament circuit → State",
+                "High", 3,
+                "Texas's largest competitive speech and debate circuit. "
+                "Events: Lincoln-Douglas Debate, Public Forum Debate, Policy Debate, "
+                "Congress, Original Oratory, Extemp Speaking. "
+                "TFA State is one of the most competitive high-school speech tournaments in the country. "
+                "Starting the circuit in Grade 8 gives a head-start entering high school.",
+                "Check if Wortham/Lebanon Trail HS has a TFA team that accepts middle schoolers for practice.",
+            )
+
+        # ════════════════════════════════════════════════════════════════════
+        # WRITING & OTHERS
+        # ════════════════════════════════════════════════════════════════════
+        with cm_write:
+            st.markdown("#### ✍️ Writing, Social Studies & Other Competitions")
+
+            _comp_card(
+                "Scholastic Art & Writing Awards", "Scholastic", "6–12", "Sep–Dec submission",
+                "Regional → National (Gold Key / Silver Key / Honorable Mention)",
+                "Very High", 3,
+                "Nation's longest-running recognition program for creative teens. "
+                "Categories: Short Story, Personal Essay, Flash Fiction, Poetry, Journalism, Humor, Science Fiction. "
+                "Gold Key at regional level = automatic National consideration. "
+                "Past winners include Sylvia Plath, Truman Capote, Stephen King.",
+                "Submit one strong piece per category. Personal Essay and Short Story are most accessible. "
+                "Build a piece from school assignments over the summer.",
+            )
+            _comp_card(
+                "UIL Ready Writing", "UIL Texas", "6–8", "Spring",
+                "School → District → Regional → State",
+                "Solid", 2,
+                "Timed editorial essay (1 hr) on a provided topic. "
+                "Tests argument structure, evidence, grammar and style. "
+                "Strong alignment with ELA curriculum.",
+                "Practice timed writing (60 min) every 2 weeks. Read strong editorials (NYT, WSJ) for models.",
+            )
+            _comp_card(
+                "National History Day (NHD)", "National History Day", "6–12", "Oct–Mar",
+                "School → District → State → National",
+                "Very High", 3,
+                "Annual theme-based research competition. Students submit in one of five formats: "
+                "Paper, Exhibit, Documentary, Performance, or Website. "
+                "Judged on historical argument, research quality, and presentation. "
+                "National finalist = major college application standout.",
+                "Pick a topic early (Sep). Documentary or Website format works well for tech-comfortable students. "
+                "Texas NHD website: nhd.org/texas",
+            )
+
+            st.markdown("---")
+            st.markdown("##### 📋 More UIL Academic Events")
+            st.caption("UIL has the widest range of middle-school academic competitions in Texas.")
+            for ev, grades, desc in [
+                ("Social Studies", "6–8",
+                 "50-question test on world history, geography, civics and economics. Spring season."),
+                ("Spelling & Vocabulary", "6–8",
+                 "Written spelling test (25 words) + oral bee format. Feeds into Scripps Bee prep."),
+                ("Maps, Graphs & Charts", "6–8",
+                 "Interpretation of maps, charts and data — strong overlap with Math and Science skills."),
+                ("Dictionary Skills", "6–8",
+                 "Speed and accuracy using a dictionary. Tests research and reference skills."),
+                ("Science (UIL)", "6–8",
+                 "Biology, Chemistry, Physical Science questions from TEKS. Spring season."),
+            ]:
+                st.markdown(
+                    f'<div style="background:#f0fdf4;border-left:3px solid #22c55e;border-radius:0 8px 8px 0;'
+                    f'padding:9px 13px;margin-bottom:7px;font-size:13px">'
+                    f'<b>{ev}</b> <span style="font-size:11px;color:#94a3b8">· Grades {grades}</span><br>'
+                    f'<span style="color:#334155">{desc}</span></div>',
+                    unsafe_allow_html=True,
+                )
+
+            st.markdown("---")
+            _comp_card(
+                "Scripps National Spelling Bee", "Scripps / E.W. Scripps", "6–8", "Jan–May",
+                "School → Regional (Bee) → National",
+                "High", 3,
+                "The most recognized spelling competition in the US — national finals air on ESPN. "
+                "School-level bee → wins to regional → national in Washington DC. "
+                "Strong vocabulary and memory skills; pairs well with UIL Spelling prep.",
+                "School coordinator registers. Merriam-Webster online practice list available free at spellingbee.com.",
+            )
+
+        # ════════════════════════════════════════════════════════════════════
+        # MY RESULTS LOG
+        # ════════════════════════════════════════════════════════════════════
+        with cm_log:
+            st.markdown("#### 📝 Competition Results Log")
+            st.caption("Track participation, levels reached, and scores year by year.")
+
+            # Session-state log for this session (no GSheets persistence yet — placeholder)
+            if "comp_log" not in st.session_state:
+                st.session_state["comp_log"] = []
+
+            with st.expander("➕ Add Result", expanded=True):
+                with st.form("comp_log_form"):
+                    cl1, cl2, cl3 = st.columns(3)
+                    with cl1:
+                        cl_year  = st.selectbox("School Year", ["2026-2027","2027-2028","2028-2029"])
+                        cl_grade = st.selectbox("Grade", ["6","7","8"])
+                    with cl2:
+                        cl_subj  = st.selectbox("Subject", ["Math","Science","Speech & Debate","Writing","Social Studies","Other"])
+                        cl_comp  = st.text_input("Competition Name", placeholder="e.g. MATHCOUNTS Chapter")
+                    with cl3:
+                        cl_level = st.selectbox("Highest Level", ["School","Chapter / District","Regional","State","National"])
+                        cl_place = st.text_input("Placement / Score", placeholder="e.g. 3rd place · 24/25")
+                    cl_notes = st.text_input("Notes", placeholder="Optional details")
+                    if st.form_submit_button("Add Entry", type="primary"):
+                        if cl_comp:
+                            st.session_state["comp_log"].append({
+                                "Year": cl_year, "Grade": cl_grade, "Subject": cl_subj,
+                                "Competition": cl_comp, "Level": cl_level,
+                                "Placement / Score": cl_place, "Notes": cl_notes,
+                            })
+                            st.success(f"✅ Logged: {cl_comp}")
+                            st.rerun()
+                        else:
+                            st.warning("Enter a competition name.")
+
+            if st.session_state["comp_log"]:
+                import pandas as _pd
+                log_df = _pd.DataFrame(st.session_state["comp_log"])
+                st.dataframe(log_df, use_container_width=True, hide_index=True)
+            else:
+                st.info("No results logged yet. Add your first competition result above.")
+
+            st.caption("💡 Results are session-only for now — GSheets persistence can be added later.")
+
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # DAUGHTER
