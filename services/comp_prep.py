@@ -702,7 +702,7 @@ COMPS: dict[str, list[dict]] = {
             ),
             "format_rows": [
                 ("Paper",       "Individual only · 2500–7500 words · annotated bibliography required",     "Best for strong writers"),
-                ("Exhibit",     "1–2 students · display board 40"×30" with images + text",                "Visual + research balance"),
+                ("Exhibit",     "1–2 students · display board 40x30 inches with images + text",           "Visual + research balance"),
                 ("Documentary", "1–2 students · 10 min video · historical footage + narration",           "Great for tech-comfortable students"),
                 ("Website",     "1–5 students · multimedia site, 1200 words + media",                     "Collaborative + flexible"),
                 ("Performance", "1–3 students · 10 min live performance",                                 "For dramatic + theatrical students"),
