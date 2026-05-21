@@ -14,9 +14,11 @@ st.set_page_config(page_title="AiPi360 · Account Tracker", page_icon="📊", la
 
 from backend.auth import require_auth, sign_out
 from backend.page_manager import check_maintenance, check_page_access
+from components.styles import inject_3d_tab_css
 require_auth()
 check_maintenance()
 check_page_access("accounts")
+inject_3d_tab_css()
 
 from components.reminder_banner import render_section_reminders
 from services.accounts import (
@@ -38,20 +40,7 @@ st.markdown("""
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
 html, body, [class*="css"] { font-family: 'Inter', sans-serif !important; }
 
-button[data-baseweb="tab"] {
-    font-family: 'Inter', sans-serif !important;
-    font-weight: 500 !important; font-size: 14px !important;
-    border-radius: 10px 10px 0 0 !important;
-    border: 1px solid #e2e8f0 !important; border-bottom: none !important;
-    background: #f8fafc !important; padding: 10px 22px !important;
-    margin-right: 4px !important; transition: all 0.15s ease !important;
-}
-button[data-baseweb="tab"]:hover { background: #f1f5f9 !important; }
-button[aria-selected="true"][data-baseweb="tab"] {
-    background: rgba(16,185,129,0.10) !important;
-    border-color: rgba(16,185,129,0.45) !important;
-    color: #059669 !important; font-weight: 700 !important;
-}
+
 .section-ret {
     font-size: 13px; font-weight: 700; color: #059669;
     background: rgba(16,185,129,0.07); border-left: 3px solid #10b981;

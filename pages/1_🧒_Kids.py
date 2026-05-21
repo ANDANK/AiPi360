@@ -10,9 +10,11 @@ st.set_page_config(page_title="AiPi360 · Kids", page_icon="🧒", layout="wide"
 
 from backend.auth import require_auth, sign_out
 from backend.page_manager import check_maintenance, check_page_access
+from components.styles import inject_3d_tab_css
 require_auth()
 check_maintenance()
 check_page_access("kids")
+inject_3d_tab_css()
 
 from components.metric_card import section_header, coming_soon
 from components.reminder_banner import render_section_reminders

@@ -7,9 +7,11 @@ st.set_page_config(page_title="AiPi360 · Travel", page_icon="✈️", layout="w
 
 from backend.auth import require_auth, sign_out
 from backend.page_manager import check_maintenance, check_page_access
+from components.styles import inject_3d_tab_css
 require_auth()
 check_maintenance()
 check_page_access("travel")
+inject_3d_tab_css()
 
 from components.metric_card import section_header, coming_soon
 
