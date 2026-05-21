@@ -70,7 +70,7 @@ with child_tab1:
     # ── Grade 6 ───────────────────────────────────────────────────────────────
     with g6:
         st.markdown("### 📘 Grade 6 — FISD")
-        sub1, sub2, sub3, sub4 = st.tabs(["📅 Syllabus & Plan", "🎯 STAAR Prep", "🔢 Math Rocks", "🌟 Planning Ahead"])
+        sub1, sub2, sub3, sub4, sub5 = st.tabs(["📅 Syllabus & Plan", "🎯 STAAR Prep", "🔢 Math Rocks", "🌟 Planning Ahead", "🏆 Comp Prep"])
 
         with sub1:
             st.markdown("#### 📅 Syllabus & Plan — Grade 6 at Wortham Intermediate")
@@ -1142,11 +1142,16 @@ with child_tab1:
 </div>
 """, unsafe_allow_html=True)
 
+        with sub5:
+            st.markdown("#### 🏆 Competition Prep — Grade 6")
+            from services.comp_prep import render_comp_prep as _rcp
+            _rcp("grade_6")
+
     # ── Grade 7 ───────────────────────────────────────────────────────────────
     with g7:
         st.markdown("### 📗 Grade 7 — Planning Ahead")
         st.markdown('<div class="grade-badge">Upcoming · Grade 7</div>', unsafe_allow_html=True)
-        g7a, g7b, g7c = st.tabs(["📅 Syllabus & Plan", "🎯 STAAR Prep", "🌟 High School Prep"])
+        g7a, g7b, g7c, g7d = st.tabs(["📅 Syllabus & Plan", "🎯 STAAR Prep", "🌟 High School Prep", "🏆 Comp Prep"])
 
         with g7a:
             coming_soon("Grade 7 — Syllabus & monthly plan (mirrors Grade 6 structure)")
@@ -1260,11 +1265,16 @@ with child_tab1:
 </div>
 """, unsafe_allow_html=True)
 
+        with g7d:
+            st.markdown("#### 🏆 Competition Prep — Grade 7")
+            from services.comp_prep import render_comp_prep as _rcp7
+            _rcp7("grade_7")
+
     # ── Grade 8 ───────────────────────────────────────────────────────────────
     with g8:
         st.markdown("### 📙 Grade 8 — High School Bound")
         st.markdown('<div class="grade-badge">Future · Grade 8</div>', unsafe_allow_html=True)
-        g8a, g8b, g8c = st.tabs(["📅 Syllabus & Plan", "🎯 STAAR Prep", "🚀 HS & Beyond"])
+        g8a, g8b, g8c, g8d = st.tabs(["📅 Syllabus & Plan", "🎯 STAAR Prep", "🚀 HS & Beyond", "🏆 Comp Prep"])
 
         with g8a:
             coming_soon("Grade 8 — Syllabus & monthly plan")
@@ -1384,6 +1394,11 @@ with child_tab1:
 
 </div>
 """, unsafe_allow_html=True)
+
+        with g8d:
+            st.markdown("#### 🏆 Competition Prep — Grade 8")
+            from services.comp_prep import render_comp_prep as _rcp8
+            _rcp8("grade_8")
 
     # ── Tamil School ──────────────────────────────────────────────────────────
     with tamil_tab:
