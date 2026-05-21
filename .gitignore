@@ -1,8 +1,8 @@
 # Never push to git
 Not2Git/
 
-# Uploads — processed locally by Claude, may contain sensitive docs
-uploads/
+# Uploads — sensitive docs excluded via uploads/.gitignore
+# uploads/school/ PDFs are intentionally tracked (public UIL study materials)
 
 # Streamlit secrets
 .streamlit/secrets.toml
