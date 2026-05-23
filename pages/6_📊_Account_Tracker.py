@@ -541,8 +541,17 @@ with tab_analytics:
                 col_cfg[f"{yr} Balance"] = st.column_config.NumberColumn(f"{yr} Balance",       format="$%,.0f",  width="medium")
                 col_cfg[f"{yr} YoY $"]   = st.column_config.NumberColumn(f"{yr}{vs_label} ($)", format="$%+,.0f", width="medium")
                 col_cfg[f"{yr} YoY %"]   = st.column_config.NumberColumn(f"{yr}{vs_label} (%)", format="%+.1f%%", width="small")
+            def _row_style(row):
+                lbl = str(row.get("Account", ""))
+                if lbl.startswith("📊"):
+                    return ["background-color:#dbeafe;font-weight:bold"] * len(row)
+                if lbl.startswith("∑"):
+                    return ["background-color:#f0f9ff"] * len(row)
+                return [""] * len(row)
+
+            styled = wide_df.style.apply(_row_style, axis=1)
             st.caption("Grouped by owner · ∑ rows = owner subtotal · Most recent year first · YoY vs prior year-end")
-            st.dataframe(wide_df, use_container_width=True, hide_index=True,
+            st.dataframe(styled, use_container_width=True, hide_index=True,
                          height=min(500, 60+38*max(len(wide_df),1)), column_config=col_cfg)
 
         st.divider()
