@@ -120,9 +120,11 @@ COMPS: dict[str, list[dict]] = {
                 {"name": "AoPS AMC 8 Wiki",                "url": "https://artofproblemsolving.com/wiki/index.php/AMC_8","type": "Free", "desc": "Problem-by-problem solutions with multiple approaches"},
                 {"name": "AoPS Alcumus",                   "url": "https://artofproblemsolving.com/alcumus",     "type": "Free",  "desc": "Set difficulty to AMC 8 — adaptive practice by topic"},
                 {"name": "AMC 8 Problem Series (YouTube)", "url": "https://www.youtube.com/results?search_query=AMC+8+solutions", "type": "Free", "desc": "Search 'AMC 8 2023 solutions' — WhyMath and others explain step-by-step"},
+                {"name": "UT Dallas AMC 8 Exam Site", "url": "https://k12.utdallas.edu/math/", "type": "$15", "desc": "UTD CS Dept hosts AMC 8 (Jan) on campus in Richardson, TX — register early, fills fast. Contact: outreach.amc@utdallas.edu"},
             ],
             "seek": [
                 ("🏫 Math Teacher", "Ask them to register the school for AMC 8 (free). Many FISD schools participate."),
+                ("🏛️ UT Dallas (UTD)", "Register at k12.utdallas.edu/math — UTD hosts AMC 8 in January (~$15). Great option if school doesn't offer it."),
                 ("📚 AoPS Community", "Post specific problems you're stuck on — the forum is very welcoming to beginners"),
                 ("🤝 Study Group",  "Form a 3–4 person group and review past tests together once a week"),
             ],
@@ -548,9 +550,11 @@ COMPS: dict[str, list[dict]] = {
             "resources": [
                 {"name": "AMC 8 Past Papers 2010–2024",   "url": "https://maa.org/math-competitions",           "type": "Free",  "desc": "Solve the 5 most recent years under timed conditions"},
                 {"name": "AoPS AMC 8 Problem Wiki",        "url": "https://artofproblemsolving.com/wiki/index.php/AMC_8", "type": "Free", "desc": "Every problem from every year with multiple solution methods"},
+                {"name": "UT Dallas AMC 8 Exam Site", "url": "https://k12.utdallas.edu/math/", "type": "$15", "desc": "UTD CS Dept hosts AMC 8 (Jan) in Richardson, TX — register by early January. Contact: outreach.amc@utdallas.edu"},
             ],
             "seek": [
                 ("🏫 Math Teacher", "Register school for AMC 8 — FISD participation is standard"),
+                ("🏛️ UT Dallas (UTD)", "Register at k12.utdallas.edu/math — UTD hosts AMC 8 in January (~$15). Good backup if school slot fills."),
                 ("📊 Self-Assessment", "After each practice test, categorize errors: careless vs. knowledge gap vs. unfamiliar type"),
             ],
             "weekly_plan": [
@@ -859,9 +863,11 @@ COMPS: dict[str, list[dict]] = {
                 {"name": "AMC 10 Past Papers",        "url": "https://maa.org/math-competitions",           "type": "Free", "desc": "Solve 2015–2023 AMC 10A papers under timed conditions"},
                 {"name": "AoPS AMC 10 Prep",          "url": "https://artofproblemsolving.com/wiki/index.php/AMC_10_Preparation", "type": "Free", "desc": "Topic list and strategy guide for AMC 10"},
                 {"name": "AoPS Precalculus",          "url": "https://artofproblemsolving.com/store",        "type": "Paid", "desc": "Covers trig and logs that appear on AMC 10 — start if time allows"},
+                {"name": "UT Dallas AMC Exam Site",   "url": "https://k12.utdallas.edu/math/",               "type": "$15", "desc": "UTD hosts AMC 8 (Jan) and AMC 10A/10B (Nov) in Richardson, TX — register early, spots fill quickly. Contact: outreach.amc@utdallas.edu"},
             ],
             "seek": [
                 ("🏫 8th Grade Math Teacher",  "Ask for pre-algebra or algebra II enrichment beyond school curriculum"),
+                ("🏛️ UT Dallas (UTD)", "Register at k12.utdallas.edu/math for AMC 8 (Jan, ~$15) and start scouting AMC 10 (Nov) registration for 9th grade."),
                 ("📖 AoPS AMC 10 Course",      "Structured course designed for Grade 8–9 AMC 10 preparation"),
             ],
             "weekly_plan": [
