@@ -481,19 +481,22 @@ with tab_analytics:
             pv = hf.copy()
             pv["year"] = pv["date"].dt.year
             pv_last = pv.sort_values("date").groupby(["year","account_id"])["balance"].last().reset_index()
-            name_map = {a["account_id"]: a["account_name"] for a in display_accts}
-            pv_last["account_name"] = pv_last["account_id"].map(name_map).fillna(pv_last["account_id"])
-            pivot = pv_last.pivot_table(index="account_name", columns="year", values="balance", aggfunc="last")
-            years = sorted(pivot.columns, reverse=True)
-            rows_pv = []
-            for acct in pivot.index:
-                row = {"Account": acct}
+            name_map  = {a["account_id"]: a["account_name"] for a in display_accts}
+            owner_map = {a["account_id"]: a.get("owner", "")  for a in display_accts}
+            pivot = pv_last.pivot_table(index="account_id", columns="year", values="balance", aggfunc="last")
+            years = sorted(pivot.columns.tolist(), reverse=True)
+
+            owner_order  = ["self", "spouse", "joint"]
+            owner_labels = {"self": f"👤 {self_name}", "spouse": f"👥 {spouse_name}", "joint": "🤝 Joint"}
+
+            def _make_row(label, yr_bals):
+                row = {"Account": label}
                 for i, yr in enumerate(years):
-                    bal  = pivot.loc[acct, yr] if not pd.isna(pivot.loc[acct, yr]) else None
+                    bal  = yr_bals.get(yr)
                     row[f"{yr} Balance"] = bal
                     prev = years[i+1] if i+1 < len(years) else None
                     if prev is not None:
-                        pb = pivot.loc[acct, prev] if not pd.isna(pivot.loc[acct, prev]) else None
+                        pb = yr_bals.get(prev)
                         if bal is not None and pb is not None and pb != 0:
                             row[f"{yr} YoY $"] = bal - pb
                             row[f"{yr} YoY %"] = (bal - pb) / pb * 100
@@ -501,27 +504,35 @@ with tab_analytics:
                             row[f"{yr} YoY $"] = row[f"{yr} YoY %"] = None
                     else:
                         row[f"{yr} YoY $"] = row[f"{yr} YoY %"] = None
-                rows_pv.append(row)
-            wide_df = pd.DataFrame(rows_pv)
+                return row
 
-            # Total row — two passes: sum balances first, then compute YoY from totals
-            total_row: dict = {"Account": "📊 Total"}
-            for yr in years:
-                bal_col = f"{yr} Balance"
-                total_row[bal_col] = wide_df[bal_col].sum(skipna=True) if bal_col in wide_df.columns else None
-            for i, yr in enumerate(years):
-                prev = years[i+1] if i+1 < len(years) else None
-                if prev is not None:
-                    tb = total_row.get(f"{yr} Balance")
-                    pb = total_row.get(f"{prev} Balance")
-                    if tb is not None and pb is not None and pb != 0:
-                        total_row[f"{yr} YoY $"] = tb - pb
-                        total_row[f"{yr} YoY %"] = (tb - pb) / pb * 100
-                    else:
-                        total_row[f"{yr} YoY $"] = total_row[f"{yr} YoY %"] = None
-                else:
-                    total_row[f"{yr} YoY $"] = total_row[f"{yr} YoY %"] = None
-            wide_df = pd.concat([wide_df, pd.DataFrame([total_row])], ignore_index=True)
+            rows_pv = []
+            grand_bals: dict = {yr: 0.0 for yr in years}
+
+            for owner_key in owner_order:
+                grp_ids = [a["account_id"] for a in display_accts
+                           if a.get("owner") == owner_key and a["account_id"] in pivot.index]
+                if not grp_ids:
+                    continue
+                grp_bals: dict = {yr: 0.0 for yr in years}
+                for aid in grp_ids:
+                    yr_vals: dict = {}
+                    for yr in years:
+                        try:
+                            v = pivot.loc[aid, yr]
+                            yr_vals[yr] = float(v) if not pd.isna(v) else None
+                        except KeyError:
+                            yr_vals[yr] = None
+                    rows_pv.append(_make_row(f"  {name_map.get(aid, aid)}", yr_vals))
+                    for yr in years:
+                        if yr_vals.get(yr) is not None:
+                            grp_bals[yr] += yr_vals[yr]
+                rows_pv.append(_make_row(f"∑  {owner_labels[owner_key]}", grp_bals))
+                for yr in years:
+                    grand_bals[yr] += grp_bals[yr]
+
+            rows_pv.append(_make_row("📊  Grand Total", grand_bals))
+            wide_df = pd.DataFrame(rows_pv)
 
             col_cfg = {}
             for i, yr in enumerate(years):
@@ -530,7 +541,7 @@ with tab_analytics:
                 col_cfg[f"{yr} Balance"] = st.column_config.NumberColumn(f"{yr} Balance",       format="$%,.0f",  width="medium")
                 col_cfg[f"{yr} YoY $"]   = st.column_config.NumberColumn(f"{yr}{vs_label} ($)", format="$%+,.0f", width="medium")
                 col_cfg[f"{yr} YoY %"]   = st.column_config.NumberColumn(f"{yr}{vs_label} (%)", format="%+.1f%%", width="small")
-            st.caption("Most recent year first · Scroll right for older years · YoY vs prior year-end")
+            st.caption("Grouped by owner · ∑ rows = owner subtotal · Most recent year first · YoY vs prior year-end")
             st.dataframe(wide_df, use_container_width=True, hide_index=True,
                          height=min(500, 60+38*max(len(wide_df),1)), column_config=col_cfg)
 
