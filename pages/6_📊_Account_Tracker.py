@@ -508,6 +508,7 @@ with tab_analytics:
 
             rows_pv = []
             grand_bals: dict = {yr: 0.0 for yr in years}
+            joint_rows: list = []   # buffered so they appear after grand total
 
             for owner_key in owner_order:
                 grp_ids = [a["account_id"] for a in display_accts
@@ -515,6 +516,7 @@ with tab_analytics:
                 if not grp_ids:
                     continue
                 grp_bals: dict = {yr: 0.0 for yr in years}
+                buf = []
                 for aid in grp_ids:
                     yr_vals: dict = {}
                     for yr in years:
@@ -523,15 +525,20 @@ with tab_analytics:
                             yr_vals[yr] = float(v) if not pd.isna(v) else None
                         except KeyError:
                             yr_vals[yr] = None
-                    rows_pv.append(_make_row(f"  {name_map.get(aid, aid)}", yr_vals))
+                    buf.append(_make_row(f"  {name_map.get(aid, aid)}", yr_vals))
                     for yr in years:
                         if yr_vals.get(yr) is not None:
                             grp_bals[yr] += yr_vals[yr]
-                rows_pv.append(_make_row(f"∑  {owner_labels[owner_key]}", grp_bals))
-                for yr in years:
-                    grand_bals[yr] += grp_bals[yr]
+                buf.append(_make_row(f"∑  {owner_labels[owner_key]}", grp_bals))
+                if owner_key == "joint":
+                    joint_rows = buf          # hold joint until after grand total
+                else:
+                    rows_pv.extend(buf)
+                    for yr in years:
+                        grand_bals[yr] += grp_bals[yr]
 
-            rows_pv.append(_make_row("📊  Grand Total", grand_bals))
+            rows_pv.append(_make_row("📊  Grand Total (excl. Joint)", grand_bals))
+            rows_pv.extend(joint_rows)        # joint group appended last
             wide_df = pd.DataFrame(rows_pv)
 
             col_cfg = {}
