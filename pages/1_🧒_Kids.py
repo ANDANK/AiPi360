@@ -65,7 +65,7 @@ child_tab1, child_tab2 = st.tabs(["👦 Son", "👧 Daughter"])
 with child_tab1:
     st.markdown('<div class="grade-badge">Currently Grade 6 · 2026-2027</div>', unsafe_allow_html=True)
 
-    g6, g7, g8, tamil_tab, classes_tab, comp_tab, uil_tab = st.tabs(["📘 Grade 6", "📗 Grade 7", "📙 Grade 8", "🕉️ Tamil School", "📋 Classes & Fees", "🏆 Competitions", "🏅 UIL Study Center"])
+    g6, g7, g8, tamil_tab, classes_tab, comp_tab, uil_tab, tests_tab = st.tabs(["📘 Grade 6", "📗 Grade 7", "📙 Grade 8", "🕉️ Tamil School", "📋 Classes & Fees", "🏆 Competitions", "🏅 UIL Study Center", "📝 Practice Tests"])
 
     # ── Grade 6 ───────────────────────────────────────────────────────────────
     with g6:
@@ -2423,6 +2423,10 @@ Total: ~6 presentations per school year.
     with uil_tab:
         from services.uil_materials import render_uil_center
         render_uil_center()
+
+    with tests_tab:
+        from services.practice_tests import render_practice_tests
+        render_practice_tests()
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
