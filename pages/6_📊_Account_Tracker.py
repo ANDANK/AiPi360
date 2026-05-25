@@ -564,12 +564,10 @@ with tab_analytics:
         st.divider()
 
         # ── 2. Quarterly Trend ────────────────────────────────────────────────
-        import datetime as _dt
-        _cur_year = _dt.date.today().year
-        st.subheader(f"📅 Quarterly Trend — {_cur_year}")
-        df_qtr = quarterly_totals(hist_filt, year=_cur_year) if not hist_filt.empty else pd.DataFrame()
+        st.subheader("📅 Quarterly Trend — Last 4 Quarters")
+        df_qtr = quarterly_totals(hist_filt, quarters=4) if not hist_filt.empty else pd.DataFrame()
         if df_qtr.empty:
-            st.info(f"No data found for {_cur_year} yet. Add balances dated in {_cur_year} to see quarterly trends.")
+            st.info("Not enough history for quarterly trend yet.")
         else:
             qtr_c, qtr_t = st.columns([1.6, 1])
             with qtr_c:

@@ -309,31 +309,21 @@ def monthly_totals(df: pd.DataFrame, months: int = 8) -> pd.DataFrame:
     return totals[["month_str", "balance", "mom_change"]].rename(columns={"balance": "total"})
 
 
-def quarterly_totals(df: pd.DataFrame, year: int | None = None) -> pd.DataFrame:
-    """Quarter-end balances for Jan–Dec of *year* (defaults to current year).
+def quarterly_totals(df: pd.DataFrame, quarters: int = 4) -> pd.DataFrame:
+    """Last *quarters* quarter-end balances (rolling, not calendar-year locked).
 
-    Returns one row per completed (or in-progress) quarter with QoQ change.
+    Returns one row per quarter with QoQ change, oldest first.
     """
-    import datetime as _dt
     if df.empty:
         return pd.DataFrame(columns=["quarter_str", "total", "qoq_change"])
-    if year is None:
-        year = _dt.date.today().year
     d = df.copy()
     d["balance"] = pd.to_numeric(d["balance"], errors="coerce").fillna(0)
-    # Keep only rows in the target year
-    d = d[d["date"].dt.year == year]
-    if d.empty:
-        return pd.DataFrame(columns=["quarter_str", "total", "qoq_change"])
     d["quarter"] = d["date"].dt.to_period("Q")
     last_per = d.sort_values("date").groupby(["quarter", "account_id"])["balance"].last().reset_index()
     totals   = last_per.groupby("quarter")["balance"].sum().reset_index()
-    totals   = totals[totals["balance"] > 0].sort_values("quarter").reset_index(drop=True)
-    # Label as "Q1 2026", "Q2 2026", …
-    totals["quarter_str"] = totals["quarter"].apply(
-        lambda p: f"Q{p.quarter} {p.year}"
-    )
-    totals["qoq_change"] = totals["balance"].diff()
+    totals   = totals[totals["balance"] > 0].sort_values("quarter").tail(quarters).reset_index(drop=True)
+    totals["quarter_str"] = totals["quarter"].apply(lambda p: f"Q{p.quarter} {p.year}")
+    totals["qoq_change"]  = totals["balance"].diff()
     return totals[["quarter_str", "balance", "qoq_change"]].rename(columns={"balance": "total"})
 
 
