@@ -30,7 +30,7 @@ from services.accounts import (
     icon as acc_icon, label as acc_label, is_retirement, auto_tax_status,
     ACCOUNT_TYPES, RETIREMENT_ACCOUNT_TYPES, IRS_LIMITS, TAX_STATUS_LABELS,
     DEFAULT_SELF_DOB, DEFAULT_SPOUSE_DOB, PROJECTION_END_YEAR,
-    monthly_totals, yearend_totals, project_retirement,
+    monthly_totals, quarterly_totals, yearend_totals, project_retirement,
 )
 from backend.gsheet import read_sheet, refresh_cache
 
@@ -563,31 +563,39 @@ with tab_analytics:
 
         st.divider()
 
-        # ── 2. Monthly Trend ──────────────────────────────────────────────────
-        st.subheader("📅 Monthly Trend — Last 8 Months")
-        df_mo = monthly_totals(hist_filt) if not hist_filt.empty else pd.DataFrame()
-        if df_mo.empty:
-            st.info("Not enough history for monthly trend yet.")
+        # ── 2. Quarterly Trend ────────────────────────────────────────────────
+        import datetime as _dt
+        _cur_year = _dt.date.today().year
+        st.subheader(f"📅 Quarterly Trend — {_cur_year}")
+        df_qtr = quarterly_totals(hist_filt, year=_cur_year) if not hist_filt.empty else pd.DataFrame()
+        if df_qtr.empty:
+            st.info(f"No data found for {_cur_year} yet. Add balances dated in {_cur_year} to see quarterly trends.")
         else:
-            mo_c, mo_t = st.columns([1.6, 1])
-            with mo_c:
-                fig_mo = go.Figure(go.Bar(
-                    x=df_mo["month_str"], y=df_mo["total"], marker_color="#3b82f6",
-                    text=df_mo["total"].apply(lambda v: f"${v/1e6:.2f}M" if v>=1e6 else f"${v:,.0f}"),
+            qtr_c, qtr_t = st.columns([1.6, 1])
+            with qtr_c:
+                bar_colors_q = ["#3b82f6" if i == 0 or pd.isna(r["qoq_change"])
+                                else ("#10b981" if r["qoq_change"] >= 0 else "#ef4444")
+                                for i, r in df_qtr.iterrows()]
+                fig_qtr = go.Figure(go.Bar(
+                    x=df_qtr["quarter_str"], y=df_qtr["total"],
+                    marker_color=bar_colors_q,
+                    text=df_qtr["total"].apply(lambda v: f"${v/1e6:.2f}M" if v >= 1e6 else f"${v:,.0f}"),
                     textposition="outside",
                     hovertemplate="%{x}<br>$%{y:,.0f}<extra></extra>",
                 ))
-                fig_mo.update_layout(paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="#f8fafc",
-                                     height=260, margin=dict(l=0,r=0,t=10,b=0),
-                                     xaxis=dict(showgrid=False),
-                                     yaxis=dict(gridcolor="#e2e8f0", tickprefix="$", tickformat=",.0f"))
-                st.plotly_chart(fig_mo, use_container_width=True)
-            with mo_t:
-                df_mo_s = df_mo[["month_str","total","mom_change"]].copy().iloc[::-1].reset_index(drop=True)
-                df_mo_s.columns = ["Month","Balance","MoM Change"]
-                st.dataframe(df_mo_s, use_container_width=True, hide_index=True, height=260,
-                             column_config={"Balance": st.column_config.NumberColumn(format="$%,.0f"),
-                                            "MoM Change": st.column_config.NumberColumn(format="$%+,.0f")})
+                fig_qtr.update_layout(paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="#f8fafc",
+                                      height=260, margin=dict(l=0, r=0, t=10, b=0),
+                                      xaxis=dict(showgrid=False),
+                                      yaxis=dict(gridcolor="#e2e8f0", tickprefix="$", tickformat=",.0f"))
+                st.plotly_chart(fig_qtr, use_container_width=True)
+            with qtr_t:
+                df_qtr_s = df_qtr[["quarter_str", "total", "qoq_change"]].copy().iloc[::-1].reset_index(drop=True)
+                df_qtr_s.columns = ["Quarter", "Balance", "QoQ Change"]
+                st.dataframe(df_qtr_s, use_container_width=True, hide_index=True, height=260,
+                             column_config={
+                                 "Balance":    st.column_config.NumberColumn(format="$%,.0f"),
+                                 "QoQ Change": st.column_config.NumberColumn(format="$%+,.0f"),
+                             })
 
         st.divider()
 
