@@ -65,7 +65,7 @@ child_tab1, child_tab2 = st.tabs(["👦 Son", "👧 Daughter"])
 with child_tab1:
     st.markdown('<div class="grade-badge">Currently Grade 6 · 2026-2027</div>', unsafe_allow_html=True)
 
-    g6, g7, g8, tamil_tab, classes_tab, comp_tab, uil_tab, tests_tab = st.tabs(["📘 Grade 6", "📗 Grade 7", "📙 Grade 8", "🕉️ Tamil School", "📋 Classes & Fees", "🏆 Competitions", "🏅 UIL Study Center", "📝 Practice Tests"])
+    g6, g7, g8, tamil_tab, classes_tab, comp_tab, uil_tab, tests_tab, chess_tab = st.tabs(["📘 Grade 6", "📗 Grade 7", "📙 Grade 8", "🕉️ Tamil School", "📋 Classes & Fees", "🏆 Competitions", "🏅 UIL Study Center", "📝 Practice Tests", "♟️ Chess"])
 
     # ── Grade 6 ───────────────────────────────────────────────────────────────
     with g6:
@@ -2427,6 +2427,181 @@ Total: ~6 presentations per school year.
     with tests_tab:
         from services.practice_tests import render_practice_tests
         render_practice_tests()
+
+    # ── ♟️ Chess ──────────────────────────────────────────────────────────────
+    with chess_tab:
+        st.markdown("### ♟️ Chess — Premier Chess Academy (PCA)")
+
+        # ── Info cards ────────────────────────────────────────────────────────
+        ci1, ci2, ci3 = st.columns(3)
+        ci1.markdown(
+            '<div style="background:#eff6ff;border:1.5px solid #bfdbfe;border-radius:10px;padding:12px 16px">'
+            '<div style="font-size:13px;color:#64748b;font-weight:600">SCHEDULE</div>'
+            '<div style="font-size:18px;font-weight:700;color:#1e40af">Tue & Thu</div>'
+            '<div style="font-size:14px;color:#374151">5:30 PM CST</div>'
+            '</div>', unsafe_allow_html=True
+        )
+        ci2.markdown(
+            '<div style="background:#f0fdf4;border:1.5px solid #bbf7d0;border-radius:10px;padding:12px 16px">'
+            '<div style="font-size:13px;color:#64748b;font-weight:600">ACADEMY</div>'
+            '<div style="font-size:18px;font-weight:700;color:#15803d">PCA</div>'
+            '<div style="font-size:14px;color:#374151">USCF Affiliated</div>'
+            '</div>', unsafe_allow_html=True
+        )
+        ci3.markdown(
+            '<div style="background:#fdf4ff;border:1.5px solid #e9d5ff;border-radius:10px;padding:12px 16px">'
+            '<div style="font-size:13px;color:#64748b;font-weight:600">PLATFORM</div>'
+            '<div style="font-size:18px;font-weight:700;color:#7e22ce">Chess.com</div>'
+            '<div style="font-size:14px;color:#374151">Club + Tournaments</div>'
+            '</div>', unsafe_allow_html=True
+        )
+
+        st.markdown("")
+        lnk1, lnk2 = st.columns(2)
+        with lnk1:
+            st.link_button("♟️ PCA Club on Chess.com", "https://www.chess.com/club/premier-chess-academy-usa", use_container_width=True)
+        with lnk2:
+            st.link_button("🌐 PCA Website", "https://premierchessacademy.com/", use_container_width=True)
+
+        st.divider()
+
+        # ── Sub-tabs ──────────────────────────────────────────────────────────
+        ch_prog, ch_rate, ch_tourn, ch_res = st.tabs(
+            ["📈 Progress & Goals", "🏅 Ratings", "🏆 Tournaments", "📚 Resources"]
+        )
+
+        with ch_prog:
+            st.markdown("#### 📈 Progress & Goals")
+            pg1, pg2 = st.columns(2)
+            with pg1:
+                with st.container(border=True):
+                    st.markdown("**Current Level**")
+                    level = st.selectbox("Chess level", ["Beginner", "Intermediate", "Advanced", "Tournament Player"], index=1, key="chess_level")
+                    focus = st.text_input("Current focus area (e.g. Openings, Endgames)", key="chess_focus", placeholder="e.g. Sicilian Defense, Rook Endgames")
+                    st.caption("These are session-only — GSheets persistence can be added later.")
+            with pg2:
+                with st.container(border=True):
+                    st.markdown("**Short-Term Goals**")
+                    st.markdown(
+                        "- 🎯 Achieve USCF rating ≥ 1000\n"
+                        "- 🎯 Win at least one tournament section\n"
+                        "- 🎯 Master 3 solid openings as White and Black\n"
+                        "- 🎯 Complete tactics training — 15 min/day"
+                    )
+                    st.caption("Edit goals directly in the app code → Kids.py chess section.")
+
+            st.markdown("#### 🗓️ Weekly Practice Plan")
+            with st.container(border=True):
+                plan_cols = st.columns(4)
+                plan_cols[0].markdown("**📖 Openings** (15 min)\nReview opening repertoire on Chess.com lessons")
+                plan_cols[1].markdown("**🧩 Tactics** (15 min)\nDaily puzzles on Chess.com or Chesstempo")
+                plan_cols[2].markdown("**♟️ PCA Class** (Tue/Thu)\n5:30 PM — attend and take notes")
+                plan_cols[3].markdown("**🔍 Game Review** (10 min)\nAnalyze 1 game/week with engine after class")
+
+        with ch_rate:
+            st.markdown("#### 🏅 Rating Tracker")
+            st.caption("Log ratings manually after each rated event. USCF ratings are official; Chess.com is rapid/blitz online.")
+            import pandas as _pd2
+            if "chess_ratings" not in st.session_state:
+                st.session_state["chess_ratings"] = []
+
+            with st.expander("➕ Log a Rating Update", expanded=False):
+                rc1, rc2, rc3, rc4 = st.columns(4)
+                with rc1:
+                    r_date = st.date_input("Date", key="chess_r_date")
+                with rc2:
+                    r_type = st.selectbox("Type", ["USCF", "Chess.com Rapid", "Chess.com Blitz"], key="chess_r_type")
+                with rc3:
+                    r_val = st.number_input("Rating", min_value=100, max_value=3000, value=800, step=10, key="chess_r_val")
+                with rc4:
+                    r_note = st.text_input("Note (optional)", key="chess_r_note", placeholder="e.g. After PCA Feb tournament")
+                if st.button("Add Rating Entry", key="chess_r_add"):
+                    st.session_state["chess_ratings"].append({
+                        "Date": str(r_date), "Type": r_type, "Rating": r_val, "Note": r_note
+                    })
+                    st.success("Rating logged!")
+                    st.rerun()
+
+            if st.session_state["chess_ratings"]:
+                df_rates = _pd2.DataFrame(st.session_state["chess_ratings"])
+                st.dataframe(df_rates, use_container_width=True, hide_index=True)
+            else:
+                st.info("No ratings logged yet — add your first entry above.")
+
+        with ch_tourn:
+            st.markdown("#### 🏆 Tournament Log")
+            st.caption("Log PCA and open tournaments. USCF results also visible at uschess.org after rated events.")
+            if "chess_tournaments" not in st.session_state:
+                st.session_state["chess_tournaments"] = []
+
+            with st.expander("➕ Log a Tournament", expanded=False):
+                tc1, tc2, tc3 = st.columns(3)
+                with tc1:
+                    t_date  = st.date_input("Date", key="chess_t_date")
+                    t_name  = st.text_input("Tournament Name", key="chess_t_name", placeholder="e.g. PCA Spring Open 2026")
+                with tc2:
+                    t_org   = st.text_input("Organizer", key="chess_t_org", value="PCA", placeholder="PCA / USCF Open / etc.")
+                    t_sect  = st.text_input("Section (e.g. K-8 U800)", key="chess_t_sect")
+                with tc3:
+                    t_score = st.text_input("Score (e.g. 3.5/5)", key="chess_t_score")
+                    t_place = st.text_input("Place / Award", key="chess_t_place", placeholder="e.g. 2nd in section")
+                t_note = st.text_input("Notes", key="chess_t_note", placeholder="Optional — highlight games, takeaways")
+                if st.button("Add Tournament", key="chess_t_add"):
+                    st.session_state["chess_tournaments"].append({
+                        "Date": str(t_date), "Tournament": t_name, "Organizer": t_org,
+                        "Section": t_sect, "Score": t_score, "Place": t_place, "Notes": t_note,
+                    })
+                    st.success("Tournament logged!")
+                    st.rerun()
+
+            if st.session_state["chess_tournaments"]:
+                df_tourn = _pd2.DataFrame(st.session_state["chess_tournaments"])
+                st.dataframe(df_tourn, use_container_width=True, hide_index=True)
+            else:
+                st.info("No tournaments logged yet — add your first result above.")
+
+        with ch_res:
+            st.markdown("#### 📚 Chess Learning Resources")
+            res_cols = st.columns(2)
+            with res_cols[0]:
+                with st.container(border=True):
+                    st.markdown("**🌐 Online Practice**")
+                    st.markdown(
+                        "- [Chess.com](https://www.chess.com) — Daily puzzles, lessons, live games\n"
+                        "- [Lichess.org](https://lichess.org) — Free tactics trainer, analysis board\n"
+                        "- [ChessTempo](https://chesstempo.com) — Endgame & tactics drills\n"
+                        "- [Chess Kid](https://www.chesskid.com) — Kid-safe chess platform by Chess.com"
+                    )
+                with st.container(border=True):
+                    st.markdown("**📖 Opening Repertoire Tips**")
+                    st.markdown(
+                        "**As White:** 1.e4 → Italian Game or London System\n\n"
+                        "**As Black vs 1.e4:** Sicilian Defense or e5\n\n"
+                        "**As Black vs 1.d4:** King's Indian or Nimzo-Indian\n\n"
+                        "*Focus on 2–3 solid openings. Depth beats breadth at this level.*"
+                    )
+            with res_cols[1]:
+                with st.container(border=True):
+                    st.markdown("**🏆 Tournaments & Ratings**")
+                    st.markdown(
+                        "- [US Chess Federation](https://www.uschess.org) — Official USCF ratings & tournament results\n"
+                        "- [PCA Club on Chess.com](https://www.chess.com/club/premier-chess-academy-usa) — Club events & standings\n"
+                        "- [PCA Website](https://premierchessacademy.com/) — Academy info & schedule\n"
+                        "- [Texas Chess Association](https://txchess.org) — TX scholastic tournaments"
+                    )
+                with st.container(border=True):
+                    st.markdown("**🧩 Daily Habit (15 min)**")
+                    st.markdown(
+                        "| Day | Activity |\n"
+                        "|-----|----------|\n"
+                        "| Mon | 10 tactics puzzles (Chess.com) |\n"
+                        "| Tue | PCA class 5:30 PM |\n"
+                        "| Wed | Review 1 opening line |\n"
+                        "| Thu | PCA class 5:30 PM |\n"
+                        "| Fri | Play 1 slow game online |\n"
+                        "| Sat | Analyze the week's games |\n"
+                        "| Sun | Rest or light puzzles |"
+                    )
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
