@@ -94,10 +94,11 @@ st.divider()
 
 settings = load_settings()
 
-tab_pages, tab_maint, tab_help = st.tabs([
+tab_pages, tab_maint, tab_help, tab_strat = st.tabs([
     "🔧 Page & Feature Management",
     "🚧 Maintenance Mode",
     "📖 Site Navigation & Help",
+    "📊 Strategies",
 ])
 
 
@@ -425,3 +426,165 @@ with tab_help:
                      "Tab Name": st.column_config.TextColumn(width="medium"),
                      "Columns":  st.column_config.TextColumn(width="large"),
                  })
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# TAB 4 — Strategies
+# ═══════════════════════════════════════════════════════════════════════════════
+with tab_strat:
+    st.markdown("#### 📊 Trading Strategies")
+    st.caption("Rules-based strategy checkers. More strategies can be added as new sub-tabs.")
+
+    strat_qqq, = st.tabs(["♟️ QQQ / TQQQ Strategy"])
+
+    with strat_qqq:
+        import datetime as _strat_dt
+        from services.qqq_strategy import (
+            evaluate, INDICATOR_LABELS,
+            THRESHOLD_IN_SEASON, THRESHOLD_OFF_SEASON, MAX_SCORE,
+            _BULLISH_PATTERNS, _BEARISH_PATTERNS, _in_season,
+        )
+
+        st.markdown("##### ♟️ QQQ / TQQQ — Weight-of-Evidence Strategy")
+        st.caption(
+            "7 indicators · Threshold +4 (in-season Nov–Jun) or +5 (off-season Jul–Oct) · "
+            "Data via yfinance (end-of-day)"
+        )
+
+        # ── Reference: indicator rules ────────────────────────────────────────
+        with st.expander("📋 Strategy Rules Reference", expanded=False):
+            ref_cols = st.columns(2)
+            with ref_cols[0]:
+                st.markdown("**Indicator Scoring**")
+                st.markdown(
+                    "| # | Indicator | +1 | 0 | -1 |\n"
+                    "|---|-----------|-----|---|----|\n"
+                    "| 1 | Price vs SMA 200 | Price > SMA200 | — | Price < SMA200 |\n"
+                    "| 2 | SMA 50 Slope (3-day) | Rising | — | Falling |\n"
+                    "| 3 | MACD Slope + Signal | Slope ↑ & above signal | Mixed | Slope ↓ & below signal |\n"
+                    "| 4 | RSI 14 | 50–69 | ≥ 70 (OB) | < 50 |\n"
+                    "| 5 | Keltner Location | Mid < Price < Upper | At/above upper | Price ≤ mid |\n"
+                    "| 6 | VIX | < 31 | N/A | ≥ 31 |\n"
+                    "| 7 | Candlestick Pattern | Bullish pattern | None | Bearish pattern |"
+                )
+                st.markdown(
+                    "**Thresholds:**  \n"
+                    f"In-season (Nov–Jun): **≥ +{THRESHOLD_IN_SEASON}** to enter  \n"
+                    f"Off-season (Jul–Oct): **≥ +{THRESHOLD_OFF_SEASON}** to enter"
+                )
+            with ref_cols[1]:
+                st.markdown("**Bullish Candlestick Patterns**")
+                for p in _BULLISH_PATTERNS:
+                    st.markdown(f"- ✅ {p}")
+                st.markdown("**Bearish Candlestick Patterns**")
+                for p in _BEARISH_PATTERNS:
+                    st.markdown(f"- ❌ {p}")
+
+        st.divider()
+
+        # ── Run button ────────────────────────────────────────────────────────
+        run_col, ts_col = st.columns([1, 3])
+        with run_col:
+            run_btn = st.button("🔍  Run Analysis", type="primary", key="strat_run",
+                                use_container_width=True)
+        with ts_col:
+            if "strat_last_run" in st.session_state:
+                st.caption(f"Last run: {st.session_state['strat_last_run']}")
+            else:
+                st.caption("Press **Run Analysis** to fetch live data and evaluate signals.")
+
+        if run_btn:
+            with st.spinner("Fetching QQQ and TQQQ data…"):
+                r_qqq  = evaluate("QQQ")
+                r_tqqq = evaluate("TQQQ")
+            st.session_state["strat_qqq"]      = r_qqq
+            st.session_state["strat_tqqq"]     = r_tqqq
+            st.session_state["strat_last_run"] = _strat_dt.datetime.now().strftime("%b %d %Y  %I:%M %p")
+            st.rerun()
+
+        # ── Results ───────────────────────────────────────────────────────────
+        if "strat_qqq" in st.session_state and "strat_tqqq" in st.session_state:
+            r_qqq  = st.session_state["strat_qqq"]
+            r_tqqq = st.session_state["strat_tqqq"]
+
+            def _render_panel(r: dict):
+                """Render one ticker's full result panel."""
+                if "error" in r:
+                    st.error(r["error"])
+                    return
+
+                ticker     = r["ticker"]
+                total      = r["total"]
+                max_s      = r["max"]
+                confidence = r["confidence"]
+                signal     = r["signal"]
+                sig_color  = r["sig_color"]
+                threshold  = r["threshold"]
+
+                # ── Signal badge ──────────────────────────────────────────────
+                badge_bg = {"green": "#dcfce7", "orange": "#fef3c7",
+                            "red": "#fee2e2"}.get(sig_color, "#f1f5f9")
+                badge_fc = {"green": "#14532d", "orange": "#78350f",
+                            "red": "#7f1d1d"}.get(sig_color, "#1e293b")
+                st.markdown(
+                    f'<div style="background:{badge_bg};border-radius:10px;'
+                    f'padding:14px 18px;margin-bottom:10px">'
+                    f'<div style="font-size:22px;font-weight:800;color:{badge_fc}">'
+                    f'{signal}</div>'
+                    f'<div style="font-size:14px;color:{badge_fc};margin-top:4px">'
+                    f'Score <b>{total}/{max_s}</b> &nbsp;·&nbsp; '
+                    f'Confidence <b>{confidence}%</b> &nbsp;·&nbsp; '
+                    f'Threshold <b>+{threshold}</b>'
+                    f'</div></div>',
+                    unsafe_allow_html=True,
+                )
+
+                # ── Confidence bar ────────────────────────────────────────────
+                st.progress(confidence / 100)
+
+                # ── Price info ────────────────────────────────────────────────
+                px_col1, px_col2, px_col3 = st.columns(3)
+                px_col1.metric("Price",    f"${r['price']:,.2f}")
+                px_col2.metric("SMA 200",  f"${r['sma200']:,.2f}",
+                               delta=f"{'above' if r['price'] > r['sma200'] else 'BELOW'}")
+                px_col3.metric("RSI",      f"{r['rsi']:.1f}")
+
+                # ── Seasonality & context ─────────────────────────────────────
+                season_icon = "✅ In-Season (Nov–Jun)" if r["in_season"] else "⚠️ Off-Season (Jul–Oct)"
+                hh_icon = "✅ HH+HL confirmed" if r["is_hh_hl"] else "❌ No HH+HL"
+                ob_icon = "⚠️ Overbought" if r["overbought"] else "✅ Not Overbought"
+                st.markdown(
+                    f"**Season:** {season_icon} &nbsp;|&nbsp; "
+                    f"**Swing structure:** {hh_icon} &nbsp;|&nbsp; {ob_icon}",
+                    unsafe_allow_html=True,
+                )
+
+                # ── Checklist ─────────────────────────────────────────────────
+                st.markdown("**Indicator Checklist**")
+                for key, label in INDICATOR_LABELS.items():
+                    _, sc, desc = r["details"][key]
+                    icon = "✅" if sc == 1 else ("❌" if sc == -1 else "⬜")
+                    pts  = f"+1" if sc == 1 else (f"−1" if sc == -1 else "0")
+                    st.markdown(
+                        f'{icon} &nbsp; **{label}** &nbsp; `{pts}` &nbsp; — {desc}',
+                        unsafe_allow_html=True,
+                    )
+
+                # ── Stop level ────────────────────────────────────────────────
+                st.markdown(f"**📍 Suggested Stop:** {r['stop']}")
+                if r["vix"] is not None:
+                    st.caption(f"VIX: {r['vix']:.1f}")
+
+            # ── Two-column dashboard ──────────────────────────────────────────
+            col_qqq, col_tqqq = st.columns(2)
+            with col_qqq:
+                st.markdown("### QQQ")
+                st.caption("Nasdaq 100 ETF (1× leverage)")
+                _render_panel(r_qqq)
+            with col_tqqq:
+                st.markdown("### TQQQ")
+                st.caption("Nasdaq 100 ETF (3× leverage) — same rules, higher volatility")
+                _render_panel(r_tqqq)
+
+        else:
+            st.info("Press **Run Analysis** above to generate today's signal.")
