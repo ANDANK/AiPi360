@@ -2466,8 +2466,8 @@ Total: ~6 presentations per school year.
         st.divider()
 
         # ── Sub-tabs ──────────────────────────────────────────────────────────
-        ch_prog, ch_rate, ch_tourn, ch_res = st.tabs(
-            ["📈 Progress & Goals", "🏅 Ratings", "🏆 Tournaments", "📚 Resources"]
+        ch_prog, ch_rate, ch_upcoming, ch_log, ch_res = st.tabs(
+            ["📈 Progress & Goals", "🏅 Ratings", "📅 Upcoming Events", "🏆 My Tournament Log", "📚 Resources"]
         )
 
         with ch_prog:
@@ -2528,25 +2528,82 @@ Total: ~6 presentations per school year.
             else:
                 st.info("No ratings logged yet — add your first entry above.")
 
-        with ch_tourn:
-            st.markdown("#### 🏆 Tournament Log")
-            st.caption("Log PCA and open tournaments. USCF results also visible at uschess.org after rated events.")
+        with ch_upcoming:
+            st.markdown("#### 📅 Upcoming PCA Events")
+            st.caption(
+                "Chess.com club events require a logged-in member session — live sync isn't possible here. "
+                "Open the link below while logged into Chess.com to see the full schedule, then copy upcoming events below."
+            )
+            st.link_button(
+                "🔗 View PCA Upcoming Events on Chess.com →",
+                "https://www.chess.com/clubs/upcomingevents/premier-chess-academy-usa",
+                use_container_width=True,
+            )
+            st.divider()
+
+            # ── Manual upcoming events tracker ────────────────────────────────
+            st.markdown("**Add Upcoming Events** *(copy from Chess.com)*")
+            if "chess_upcoming" not in st.session_state:
+                st.session_state["chess_upcoming"] = []
+
+            with st.expander("➕ Add an Upcoming Event", expanded=True):
+                ue1, ue2, ue3 = st.columns(3)
+                with ue1:
+                    ue_date = st.date_input("Event Date", key="chess_ue_date")
+                    ue_name = st.text_input("Event Name", key="chess_ue_name",
+                                            placeholder="e.g. PCA Weekly Rapid #42")
+                with ue2:
+                    ue_type = st.selectbox("Type", ["Club Match", "Tournament", "Weekly Rapid",
+                                                     "Ladder", "Other"], key="chess_ue_type")
+                    ue_tc   = st.text_input("Time Control", key="chess_ue_tc",
+                                            placeholder="e.g. 15+10, 5+3")
+                with ue3:
+                    ue_rounds = st.text_input("Rounds / Format", key="chess_ue_rounds",
+                                              placeholder="e.g. 5 rounds Swiss")
+                    ue_note   = st.text_input("Notes", key="chess_ue_note",
+                                              placeholder="Optional")
+                if st.button("Add Event", key="chess_ue_add", type="primary"):
+                    st.session_state["chess_upcoming"].append({
+                        "Date": str(ue_date), "Event": ue_name, "Type": ue_type,
+                        "Time Control": ue_tc, "Format": ue_rounds, "Notes": ue_note,
+                    })
+                    st.success("Event added!")
+                    st.rerun()
+
+            if st.session_state["chess_upcoming"]:
+                import pandas as _pd_ue
+                df_ue = _pd_ue.DataFrame(st.session_state["chess_upcoming"])
+                df_ue = df_ue.sort_values("Date").reset_index(drop=True)
+                st.dataframe(df_ue, use_container_width=True, hide_index=True)
+                if st.button("🗑️ Clear All Upcoming Events", key="chess_ue_clear"):
+                    st.session_state["chess_upcoming"] = []
+                    st.rerun()
+            else:
+                st.info("No upcoming events added yet — copy them from the Chess.com link above.")
+
+        with ch_log:
+            st.markdown("#### 🏆 My Tournament Log")
+            st.caption("Log completed PCA and open tournaments. USCF results also appear at uschess.org after rated events.")
             if "chess_tournaments" not in st.session_state:
                 st.session_state["chess_tournaments"] = []
 
-            with st.expander("➕ Log a Tournament", expanded=False):
+            with st.expander("➕ Log a Completed Tournament", expanded=False):
                 tc1, tc2, tc3 = st.columns(3)
                 with tc1:
                     t_date  = st.date_input("Date", key="chess_t_date")
-                    t_name  = st.text_input("Tournament Name", key="chess_t_name", placeholder="e.g. PCA Spring Open 2026")
+                    t_name  = st.text_input("Tournament Name", key="chess_t_name",
+                                            placeholder="e.g. PCA Spring Open 2026")
                 with tc2:
-                    t_org   = st.text_input("Organizer", key="chess_t_org", value="PCA", placeholder="PCA / USCF Open / etc.")
+                    t_org   = st.text_input("Organizer", key="chess_t_org", value="PCA",
+                                            placeholder="PCA / USCF Open / etc.")
                     t_sect  = st.text_input("Section (e.g. K-8 U800)", key="chess_t_sect")
                 with tc3:
                     t_score = st.text_input("Score (e.g. 3.5/5)", key="chess_t_score")
-                    t_place = st.text_input("Place / Award", key="chess_t_place", placeholder="e.g. 2nd in section")
-                t_note = st.text_input("Notes", key="chess_t_note", placeholder="Optional — highlight games, takeaways")
-                if st.button("Add Tournament", key="chess_t_add"):
+                    t_place = st.text_input("Place / Award", key="chess_t_place",
+                                            placeholder="e.g. 2nd in section")
+                t_note = st.text_input("Notes", key="chess_t_note",
+                                       placeholder="Optional — highlight games, takeaways")
+                if st.button("Add to Log", key="chess_t_add", type="primary"):
                     st.session_state["chess_tournaments"].append({
                         "Date": str(t_date), "Tournament": t_name, "Organizer": t_org,
                         "Section": t_sect, "Score": t_score, "Place": t_place, "Notes": t_note,
@@ -2556,6 +2613,7 @@ Total: ~6 presentations per school year.
 
             if st.session_state["chess_tournaments"]:
                 df_tourn = _pd2.DataFrame(st.session_state["chess_tournaments"])
+                df_tourn = df_tourn.sort_values("Date", ascending=False).reset_index(drop=True)
                 st.dataframe(df_tourn, use_container_width=True, hide_index=True)
             else:
                 st.info("No tournaments logged yet — add your first result above.")
