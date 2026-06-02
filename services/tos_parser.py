@@ -428,11 +428,36 @@ def _rh_clean(content: str) -> str:
 
 def _rh_delimiter(content: str) -> str:
     """
-    Detect tab vs comma by counting occurrences in the header line.
-    Robinhood exports are tab-separated; some re-saves come out comma-separated.
+    Detect tab vs comma by looking at the ACTUAL data-header line
+    (the one containing 'Activity Date'), not necessarily the first line.
     """
-    header = content.lstrip("﻿").split("\n")[0]
-    return "\t" if header.count("\t") > header.count(",") else ","
+    for line in _rh_clean(content).split("\n"):
+        if "Activity Date" in line:
+            return "\t" if line.count("\t") > line.count(",") else ","
+    # Fallback: check first line
+    first = _rh_clean(content).split("\n")[0]
+    return "\t" if first.count("\t") > first.count(",") else ","
+
+
+def _rh_find_header(lines: list[str], delim: str) -> tuple[int, str | None]:
+    """
+    Find the index of the data-header row (containing 'Activity Date' and
+    'Trans Code') and optionally extract the account name from a preamble row.
+    Returns (header_idx, detected_account_name).
+    """
+    acct_name: str | None = None
+
+    for i, line in enumerate(lines):
+        cols = [c.strip() for c in line.split(delim)]
+        # Preamble row: "Account name  <name>"
+        if cols and cols[0].lower() in ("account name", "account"):
+            if len(cols) > 1 and cols[1]:
+                acct_name = cols[1]
+        # Actual data header
+        if "Activity Date" in cols and "Trans Code" in cols:
+            return i, acct_name
+
+    return -1, acct_name   # not found
 
 
 # ── Robinhood trans code master table ─────────────────────────────────────────
@@ -522,12 +547,28 @@ _RH_OPT_RE = _re.compile(
 )
 
 
+_RH_DESC_STRIP = (
+    "option expiration for ",
+    "option exercise for ",
+    "option assignment for ",
+    "assigned - ",
+)
+
+
 def _parse_rh_opt_desc(desc: str) -> dict:
     """
-    Parse 'SOFI 5/8/2026 Put $16.00' → {expiry, opt_type (CALL/PUT), strike}.
-    Returns {} if not an option description.
+    Parse option details from a Robinhood description field.
+    Handles both bare format  'SOFI 5/8/2026 Put $16.00'
+    and prefixed format       'Option Expiration for SOFI 5/1/2026 Put $16.00'.
+    Returns {expiry, opt_type (CALL/PUT), strike} or {} if not an option.
     """
-    m = _RH_OPT_RE.match(desc.strip().splitlines()[0])   # use first line only
+    raw = desc.strip().splitlines()[0].strip()   # first line only
+    lower = raw.lower()
+    for prefix in _RH_DESC_STRIP:
+        if lower.startswith(prefix):
+            raw = raw[len(prefix):]
+            break
+    m = _RH_OPT_RE.match(raw)
     if not m:
         return {}
     _, date_str, opt_type, strike_str = m.groups()
@@ -537,7 +578,7 @@ def _parse_rh_opt_desc(desc: str) -> dict:
         exp = None
     return {
         "expiry":   exp,
-        "opt_type": opt_type.upper(),      # "CALL" or "PUT"
+        "opt_type": opt_type.upper(),
         "strike":   _f(strike_str),
     }
 
@@ -564,7 +605,20 @@ def parse_rh_csv(content: str,
     """
     content    = _rh_clean(content)
     delim      = _rh_delimiter(content)
-    reader     = csv.DictReader(io.StringIO(content), delimiter=delim)
+    lines      = content.split("\n")
+
+    # Locate actual data-header row; read account name from preamble
+    header_idx, detected_name = _rh_find_header(lines, delim)
+    if detected_name:
+        account_name = detected_name          # e.g. "AK Robin Hood"
+    if header_idx < 0:
+        # Cannot find header — return empty rather than crash
+        return {"account_name": account_name, "trades": [], "cash_flows": [],
+                "corporates": [], "equities": [], "options": [],
+                "broker": "Robinhood"}
+
+    data_str   = "\n".join(lines[header_idx:])
+    reader     = csv.DictReader(io.StringIO(data_str), delimiter=delim)
     rows       = list(reader)
     trades     : list[dict] = []
     cash_flows : list[dict] = []
@@ -699,11 +753,16 @@ def parse_rh_csv(content: str,
 def detect_broker(content: str) -> str:
     """
     Return 'tos', 'robinhood', or 'unknown' based on CSV header fingerprint.
-    Handles UTF-8 BOM and both comma- and tab-separated Robinhood exports.
+
+    ToS:         first row is  'Account Name,<name>,...'  (comma, capital N)
+    Robinhood:   may have      'Account name<tab><name>'  (tab, lowercase n)
+                 followed by the data header with 'Activity Date' + 'Trans Code'
     """
-    snippet = _rh_clean(content)[:600]
-    if snippet.startswith("Account Name"):
+    snippet = _rh_clean(content)[:800]
+    # ToS: always starts with 'Account Name' + comma (capital N, comma-sep)
+    if snippet.startswith("Account Name,"):
         return "tos"
+    # Robinhood: data header row contains both of these column names
     if "Activity Date" in snippet and "Trans Code" in snippet:
         return "robinhood"
     return "unknown"
