@@ -460,6 +460,78 @@ with tab_pnl:
                 if df_pnl.empty:
                     st.stop()
 
+                # ── Cash Activity (deposits / withdrawals) ────────────────────
+                raw_cf = acct_data.get("cash_flows", [])
+                if raw_cf:
+                    df_cf = pd.DataFrame(raw_cf)
+                    df_cf["datetime"] = pd.to_datetime(df_cf["datetime"], errors="coerce")
+                    # Apply same date filter as trades
+                    if filter_mode == "Year":
+                        cf_mask = df_cf["datetime"].dt.year == int(sel_year)
+                    elif filter_mode == "Month":
+                        y2, m2 = int(sel_month[:4]), int(sel_month[5:])
+                        cf_mask = (
+                            (df_cf["datetime"].dt.year == y2) &
+                            (df_cf["datetime"].dt.month == m2)
+                        )
+                    elif filter_mode == "Custom range":
+                        cf_mask = (
+                            (df_cf["datetime"].dt.date >= date_from) &
+                            (df_cf["datetime"].dt.date <= date_to)
+                        )
+                    else:
+                        cf_mask = pd.Series([True] * len(df_cf))
+                    df_cf = df_cf[cf_mask].copy()
+
+                    if not df_cf.empty:
+                        st.markdown("#### 💵 Cash Activity")
+                        # Deposits (positive ACH/transfers)
+                        dep_codes   = {"ACH", "ITRF", "T/A", "ACATO", "REC"}
+                        withdrawals = df_cf[df_cf["cash_type"] == "Transfer"][
+                            "amount"].apply(lambda x: x if (x or 0) < 0 else 0).sum()
+                        deposits    = df_cf[df_cf["cash_type"] == "Transfer"][
+                            "amount"].apply(lambda x: x if (x or 0) > 0 else 0).sum()
+                        dividends   = df_cf[df_cf["cash_type"] == "Dividend"]["amount"].sum()
+                        interest    = df_cf[df_cf["cash_type"] == "Interest"]["amount"].sum()
+                        fees        = df_cf[df_cf["cash_type"].isin(
+                            ["Gold Fee", "Fee"])]["amount"].sum()
+                        gold_cr     = df_cf[df_cf["cash_type"] == "Gold Credit"]["amount"].sum()
+                        other       = df_cf[~df_cf["cash_type"].isin(
+                            ["Transfer", "Dividend", "Interest",
+                             "Gold Fee", "Fee", "Gold Credit"])]["amount"].sum()
+
+                        ca1, ca2, ca3, ca4, ca5, ca6 = st.columns(6)
+                        ca1.metric("Deposits",    _fmt_pnl(deposits)    if deposits    else "—")
+                        ca2.metric("Withdrawals", _fmt_pnl(withdrawals) if withdrawals else "—")
+                        ca3.metric("Dividends",   _fmt_pnl(dividends)   if dividends   else "—")
+                        ca4.metric("Interest",    _fmt_pnl(interest)    if interest    else "—")
+                        ca5.metric("Fees",        _fmt_pnl(fees)        if fees        else "—")
+                        ca6.metric("Net Cash In", _fmt_pnl(
+                            (deposits or 0) + (withdrawals or 0) +
+                            (dividends or 0) + (interest or 0) + (fees or 0) + (gold_cr or 0)
+                        ))
+
+                        with st.expander("📄 Cash Activity Detail", expanded=False):
+                            cf_disp = df_cf[["date_str", "trans_code", "cash_type",
+                                             "instrument", "description", "amount"]].copy()
+                            cf_disp.columns = ["Date", "Code", "Type",
+                                               "Symbol", "Description", "Amount ($)"]
+                            st.dataframe(
+                                _color_df_pnl(cf_disp, "Amount ($)"),
+                                use_container_width=True,
+                                hide_index=True,
+                                column_config={
+                                    "Amount ($)": st.column_config.NumberColumn(
+                                        format="$%+,.2f"),
+                                },
+                            )
+                        st.divider()
+                else:
+                    st.caption("💵 Cash activity (deposits / withdrawals / dividends) "
+                               "is available for Robinhood imports only. "
+                               "ToS trade history exports do not include cash transactions.")
+                    st.divider()
+
                 total_pnl   = df_pnl["pnl"].sum()
                 winners     = df_pnl[df_pnl["winner"] == True]
                 losers      = df_pnl[df_pnl["winner"] == False]

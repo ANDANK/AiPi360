@@ -420,16 +420,85 @@ def _trade_sig(t: dict) -> str:
 
 import re as _re
 
-_RH_CODES: dict[str, dict] = {
-    "BTO":   {"side": "BUY",  "pos_effect": "TO OPEN",  "is_option": True},
-    "STO":   {"side": "SELL", "pos_effect": "TO OPEN",  "is_option": True},
-    "BTC":   {"side": "BUY",  "pos_effect": "TO CLOSE", "is_option": True},
-    "STC":   {"side": "SELL", "pos_effect": "TO CLOSE", "is_option": True},
-    "Buy":   {"side": "BUY",  "pos_effect": "TO OPEN",  "is_option": False},
-    "Sell":  {"side": "SELL", "pos_effect": "TO CLOSE", "is_option": False},
-    "OEXP":  {"side": "BUY",  "pos_effect": "TO CLOSE", "is_option": True},   # expired @ 0
-    "OASGN": {"side": "BUY",  "pos_effect": "TO CLOSE", "is_option": True},   # assigned @ 0
-    "OEXRC": {"side": "SELL", "pos_effect": "TO CLOSE", "is_option": True},   # exercised @ 0
+# ── Robinhood trans code master table ─────────────────────────────────────────
+# cat:
+#   "option"    → option trade   (feeds P&L engine)
+#   "stock"     → stock/ETF trade (feeds P&L engine)
+#   "cash"      → cash flow      (feeds deposit/withdrawal summary)
+#   "corporate" → corporate action (recorded, no P&L)
+#   "skip"      → ignore entirely (unknown / irrelevant)
+
+_RH_MASTER: dict[str, dict] = {
+    # ── Option trades ─────────────────────────────────────────────────────────
+    "BTO":   {"cat": "option", "side": "BUY",  "pos_effect": "TO OPEN",
+              "note": "Buy to Open"},
+    "STO":   {"cat": "option", "side": "SELL", "pos_effect": "TO OPEN",
+              "note": "Sell to Open (CSP / CC)"},
+    "BTC":   {"cat": "option", "side": "BUY",  "pos_effect": "TO CLOSE",
+              "note": "Buy to Close"},
+    "STC":   {"cat": "option", "side": "SELL", "pos_effect": "TO CLOSE",
+              "note": "Sell to Close"},
+    "OEXP":  {"cat": "option", "side": "BUY",  "pos_effect": "TO CLOSE",
+              "price_override": 0.0,
+              "note": "Option Expired (worthless) → close @ $0"},
+    "OASGN": {"cat": "option", "side": "BUY",  "pos_effect": "TO CLOSE",
+              "price_override": 0.0,
+              "note": "Option Assigned → close option @ $0; stock row follows"},
+    "OEXCS": {"cat": "option", "side": "SELL", "pos_effect": "TO CLOSE",
+              "price_override": 0.0,
+              "note": "Option Exercised (you exercised a call) → close @ $0"},
+    # legacy spelling seen in some exports
+    "OEXRC": {"cat": "option", "side": "SELL", "pos_effect": "TO CLOSE",
+              "price_override": 0.0,
+              "note": "Option Exercise (alt code)"},
+
+    # ── Stock / ETF trades ────────────────────────────────────────────────────
+    "Buy":   {"cat": "stock", "side": "BUY",  "pos_effect": "TO OPEN",
+              "note": "Stock / ETF purchase"},
+    "Sell":  {"cat": "stock", "side": "SELL", "pos_effect": "TO CLOSE",
+              "note": "Stock / ETF sale"},
+    "LIQ":   {"cat": "stock", "side": "SELL", "pos_effect": "TO CLOSE",
+              "note": "Liquidation (forced sale)"},
+
+    # ── Cash flows ────────────────────────────────────────────────────────────
+    "ACH":   {"cat": "cash", "cash_type": "Transfer",
+              "note": "ACH deposit (+) or withdrawal (-)"},
+    "INT":   {"cat": "cash", "cash_type": "Interest",
+              "note": "Interest income"},
+    "CDIV":  {"cat": "cash", "cash_type": "Dividend",
+              "note": "Cash dividend"},
+    "RTP":   {"cat": "cash", "cash_type": "Return of Capital",
+              "note": "Return of capital / tax-related payment"},
+    "ITRF":  {"cat": "cash", "cash_type": "Transfer",
+              "note": "Internal transfer between RH accounts"},
+    "T/A":   {"cat": "cash", "cash_type": "Transfer",
+              "note": "Transfer and Assignment (account transfer in/out)"},
+    "GMPC":  {"cat": "cash", "cash_type": "Gold Credit",
+              "note": "Robinhood Gold Monthly Payment Credit"},
+    "GOLD":  {"cat": "cash", "cash_type": "Gold Fee",
+              "note": "Robinhood Gold subscription fee"},
+    "FEE":   {"cat": "cash", "cash_type": "Fee",
+              "note": "Regulatory / trading fee"},
+    "LCAP":  {"cat": "cash", "cash_type": "Distribution",
+              "note": "Long-term capital gain distribution (ETF)"},
+    "SPR":   {"cat": "cash", "cash_type": "Special Payment",
+              "note": "Special payment / redistribution"},
+
+    # ── Corporate actions (record only, no P&L or cash impact) ───────────────
+    "SPL":   {"cat": "corporate",
+              "note": "Stock split — adjusts share count, not a sale"},
+    "OCA":   {"cat": "corporate",
+              "note": "Option Contract Adjustment (post-split)"},
+    "SOFF":  {"cat": "corporate",
+              "note": "Spinoff — shares received from corporate spinoff"},
+    "SXCH":  {"cat": "corporate",
+              "note": "Stock Exchange — M&A share swap"},
+    "CONV":  {"cat": "corporate",
+              "note": "Conversion (e.g., preferred → common)"},
+    "ACATO": {"cat": "corporate",
+              "note": "Acquisition To — shares received in tender / merger"},
+    "REC":   {"cat": "corporate",
+              "note": "Receipt of shares (transfer in / gift)"},
 }
 
 _RH_OPT_RE = _re.compile(
@@ -462,19 +531,27 @@ def parse_rh_csv(content: str,
                  account_name: str = "Robinhood Account") -> dict:
     """
     Parse a Robinhood activity CSV export.
-    Returns the same dict shape as parse_tos_csv:
-        account_name, trades, equities (empty), options (empty).
 
-    Notes:
-    - Robinhood exports do NOT include current open-position snapshots,
-      so equities and options are always empty lists.
-    - OASGN/OEXP/OEXRC close the option at price=0 (full outcome).
-      The resulting stock delivery (Buy row) is treated as a new stock position.
-    - Price column is per-share for options (consistent with ToS).
+    Returns:
+        account_name : str
+        trades       : list[dict]   — option + stock trades (P&L engine)
+        cash_flows   : list[dict]   — ACH / dividends / fees / transfers
+        corporates   : list[dict]   — splits / spinoffs / M&A (informational)
+        equities     : []           — RH CSV has no open-position snapshot
+        options      : []
+        broker       : 'robinhood'
+
+    Trans-code coverage:
+        option  : BTO STO BTC STC OEXP OASGN OEXCS OEXRC
+        stock   : Buy Sell LIQ
+        cash    : ACH INT CDIV RTP ITRF T/A GMPC GOLD FEE LCAP SPR
+        corporate: SPL OCA SOFF SXCH CONV ACATO REC
     """
-    reader = csv.DictReader(io.StringIO(content))
-    rows   = list(reader)
-    trades: list[dict] = []
+    reader     = csv.DictReader(io.StringIO(content))
+    rows       = list(reader)
+    trades     : list[dict] = []
+    cash_flows : list[dict] = []
+    corporates : list[dict] = []
 
     for row in rows:
         trans_code  = _s(row.get("Trans Code", ""))
@@ -483,16 +560,15 @@ def parse_rh_csv(content: str,
         act_raw     = _s(row.get("Activity Date", ""))
         qty_raw     = _s(row.get("Quantity", ""))
         price_raw   = _s(row.get("Price", ""))
+        amount_raw  = _s(row.get("Amount", ""))
 
-        if not instrument or trans_code not in _RH_CODES:
-            continue                   # skip dividends, ACH, transfers, etc.
+        meta = _RH_MASTER.get(trans_code)
+        if meta is None:
+            continue           # truly unknown code — silently skip
 
-        code   = _RH_CODES[trans_code]
-        side   = code["side"]
-        pos    = code["pos_effect"]
-        is_opt = code["is_option"]
+        cat = meta["cat"]
 
-        # Parse execution date
+        # Parse date
         dt = None
         for fmt in ("%m/%d/%Y", "%Y-%m-%d"):
             try:
@@ -500,38 +576,63 @@ def parse_rh_csv(content: str,
                 break
             except ValueError:
                 pass
+        date_str = dt.strftime("%Y-%m-%d") if dt else ""
 
-        # Parse quantity (always positive; sign comes from side)
+        # ── Cash flow ─────────────────────────────────────────────────────────
+        if cat == "cash":
+            amount = _f(amount_raw)
+            cash_flows.append({
+                "datetime":   dt,
+                "date_str":   date_str,
+                "trans_code": trans_code,
+                "cash_type":  meta.get("cash_type", "Other"),
+                "instrument": instrument,
+                "description":description,
+                "amount":     amount,
+                "note":       meta.get("note", ""),
+            })
+            continue
+
+        # ── Corporate action ──────────────────────────────────────────────────
+        if cat == "corporate":
+            corporates.append({
+                "datetime":   dt,
+                "date_str":   date_str,
+                "trans_code": trans_code,
+                "instrument": instrument,
+                "description":description,
+                "qty":        _i(qty_raw),
+                "note":       meta.get("note", ""),
+            })
+            continue
+
+        # ── Trade (option or stock) ───────────────────────────────────────────
+        side    = meta["side"]
+        pos     = meta["pos_effect"]
+        is_opt  = (cat == "option")
+
         qty_abs = abs(_i(qty_raw) or 0)
         qty     = -qty_abs if side == "SELL" else qty_abs
 
-        # Parse price per share
-        price = _f(price_raw)
+        price   = _f(price_raw)
+        if "price_override" in meta and (price is None or price == 0.0):
+            price = meta["price_override"]
 
-        # Option fields
-        expiry     : Optional[date] = None
-        expiry_str : str            = ""
+        expiry     : Optional[date]  = None
+        expiry_str : str             = ""
         strike     : Optional[float] = None
-        instr_type : str            = "STOCK"
+        instr_type : str             = "STOCK"
 
         if is_opt:
-            opt = _parse_rh_opt_desc(description)
+            opt        = _parse_rh_opt_desc(description)
             expiry     = opt.get("expiry")
             expiry_str = expiry.strftime("%d %b %y") if expiry else ""
             strike     = opt.get("strike")
             instr_type = opt.get("opt_type", "CALL")
-            # Assigned / expired / exercised close at 0
-            if trans_code in ("OASGN", "OEXP", "OEXRC") and not price:
-                price = 0.0
-        else:
-            instr_type = "STOCK"
 
-        # Stock delivery after assignment — tag it so UI can flag it
         is_assignment_delivery = (
-            not is_opt
-            and "option assigned" in description.lower()
+            not is_opt and "option assigned" in description.lower()
         )
-
         is_leaps = (
             is_opt and expiry and dt is not None
             and (expiry - dt.date()).days > 365
@@ -539,7 +640,7 @@ def parse_rh_csv(content: str,
 
         trade = {
             "datetime":               dt,
-            "date_str":               dt.strftime("%Y-%m-%d") if dt else "",
+            "date_str":               date_str,
             "spread_type":            "",
             "side":                   side,
             "qty":                    qty,
@@ -568,7 +669,9 @@ def parse_rh_csv(content: str,
     return {
         "account_name": account_name,
         "trades":       trades,
-        "equities":     [],   # RH CSV has no open-position snapshot
+        "cash_flows":   cash_flows,
+        "corporates":   corporates,
+        "equities":     [],
         "options":      [],
         "broker":       "Robinhood",
     }
@@ -614,13 +717,23 @@ def merge_upload(existing: dict, new_parsed: dict) -> dict:
     if not existing:
         return new_parsed
 
-    seen = {_trade_sig(t) for t in existing.get("trades", [])}
-    added = [t for t in new_parsed["trades"] if _trade_sig(t) not in seen]
+    # Deduplicate trades
+    seen_trades = {_trade_sig(t) for t in existing.get("trades", [])}
+    added_trades = [t for t in new_parsed["trades"] if _trade_sig(t) not in seen_trades]
+
+    # Deduplicate cash_flows by (date_str, trans_code, amount)
+    def _cf_sig(c):
+        return f"{c.get('date_str')}|{c.get('trans_code')}|{c.get('amount')}"
+
+    seen_cf = {_cf_sig(c) for c in existing.get("cash_flows", [])}
+    added_cf = [c for c in new_parsed.get("cash_flows", []) if _cf_sig(c) not in seen_cf]
 
     return {
         "account_name": new_parsed["account_name"],
-        "trades":       existing["trades"] + added,
-        "equities":     new_parsed["equities"],   # always replace open positions
+        "trades":       existing["trades"] + added_trades,
+        "cash_flows":   existing.get("cash_flows", []) + added_cf,
+        "corporates":   new_parsed.get("corporates", []),   # always replace
+        "equities":     new_parsed["equities"],
         "options":      new_parsed["options"],
         "last_import":  datetime.now().strftime("%Y-%m-%d %H:%M"),
         "import_count": existing.get("import_count", 1) + 1,
