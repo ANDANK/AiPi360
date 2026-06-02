@@ -460,6 +460,18 @@ def _rh_find_header(lines: list[str], delim: str) -> tuple[int, str | None]:
     return -1, acct_name   # not found
 
 
+def peek_rh_account(content: str) -> str:
+    """
+    Fast scan — return detected account name without full parse.
+    Works whether headers are on row 1 (no preamble) or after a preamble.
+    Falls back to 'Robinhood Account' if no name found.
+    """
+    content = _rh_clean(content)
+    delim   = _rh_delimiter(content)
+    _, name = _rh_find_header(content.split("\n"), delim)
+    return name or "Robinhood Account"
+
+
 # ── Robinhood trans code master table ─────────────────────────────────────────
 # cat:
 #   "option"    → option trade   (feeds P&L engine)

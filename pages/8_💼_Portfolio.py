@@ -30,6 +30,7 @@ from services.tos_parser import (
     detect_broker,
     merge_upload,
     parse_broker_csv,
+    peek_rh_account,
 )
 
 st.title("💼 Portfolio & Trading Accounts")
@@ -135,12 +136,18 @@ with tab_import:
             )
             st.stop()
 
-        # ── For Robinhood, let user set the account name ──────────────────────
+        # ── Account name ──────────────────────────────────────────────────────
+        # For ToS: extracted from the file automatically.
+        # For RH:  peek the file first so the input is pre-filled.
         rh_name = "Robinhood Account"
         if broker == "robinhood":
+            _peeked = peek_rh_account(content)
+            _auto   = _peeked != "Robinhood Account"
             rh_name = st.text_input(
-                "Account name (Robinhood doesn't include one — type yours):",
-                value="Robinhood Account",
+                "Account name"
+                + (" *(auto-detected — edit if needed)*" if _auto
+                   else " *(not found in file — type yours)*"),
+                value=_peeked,
                 key="rh_acct_name",
                 placeholder="e.g. RH Individual, RH IRA",
             )
