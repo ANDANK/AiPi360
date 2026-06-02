@@ -318,10 +318,17 @@ def compute_realized_pnl(trades: list[dict]) -> pd.DataFrame:
             side  = t.get("side", "")
             pos   = t.get("pos_effect", "")
             qty   = abs(t.get("qty") or 0)
-            price = t.get("price") or 0
+            price = t.get("price")
             dt    = t.get("datetime")
-            if not qty or not price:
+            # Skip only if qty is missing; price=0 is valid for OEXP/OASGN
+            if not qty:
                 continue
+            # For non-close trades, price must exist; for close trades, price can be 0
+            if price is None and pos != "TO CLOSE":
+                continue
+            # Ensure price is numeric
+            if price is None:
+                price = 0
 
             if pos == "TO OPEN":
                 queue = longs if side == "BUY" else shorts
@@ -448,7 +455,7 @@ def _rh_find_header(lines: list[str], delim: str) -> tuple[int, str | None]:
     acct_name: str | None = None
 
     for i, line in enumerate(lines):
-        cols = [c.strip() for c in line.split(delim)]
+        cols = [c.strip().strip('"') for c in line.split(delim)]  # strip quotes
         # Preamble row: "Account name  <name>"
         if cols and cols[0].lower() in ("account name", "account"):
             if len(cols) > 1 and cols[1]:
@@ -615,23 +622,11 @@ def parse_rh_csv(content: str,
         cash    : ACH INT CDIV RTP ITRF T/A GMPC GOLD FEE LCAP SPR
         corporate: SPL OCA SOFF SXCH CONV ACATO REC
     """
-    content    = _rh_clean(content)
-    delim      = _rh_delimiter(content)
-    lines      = content.split("\n")
+    content = _rh_clean(content)
 
-    # Locate actual data-header row; read account name from preamble
-    header_idx, detected_name = _rh_find_header(lines, delim)
-    if detected_name:
-        account_name = detected_name          # e.g. "AK Robin Hood"
-    if header_idx < 0:
-        # Cannot find header — return empty rather than crash
-        return {"account_name": account_name, "trades": [], "cash_flows": [],
-                "corporates": [], "equities": [], "options": [],
-                "broker": "Robinhood"}
-
-    data_str   = "\n".join(lines[header_idx:])
-    reader     = csv.DictReader(io.StringIO(data_str), delimiter=delim)
-    rows       = list(reader)
+    # Use csv.DictReader directly to handle multiline quoted fields properly
+    reader = csv.DictReader(io.StringIO(content))
+    rows = list(reader)
     trades     : list[dict] = []
     cash_flows : list[dict] = []
     corporates : list[dict] = []
@@ -696,6 +691,10 @@ def parse_rh_csv(content: str,
 
         qty_abs = abs(_i(qty_raw) or 0)
         qty     = -qty_abs if side == "SELL" else qty_abs
+
+        # OEXP/OASGN rows have empty Quantity; always 1 contract
+        if trans_code in ("OEXP", "OASGN", "OEXCS", "OEXRC") and qty == 0:
+            qty = 1 if side == "BUY" else -1
 
         price   = _f(price_raw)
         if "price_override" in meta and (price is None or price == 0.0):
