@@ -32,15 +32,21 @@ from services.tos_parser import (
     parse_broker_csv,
     peek_rh_account,
 )
+from services.portfolio_store import (
+    list_broker_accounts,
+    load_account_data,
+    save_upload,
+)
 
 st.title("💼 Portfolio & Trading Accounts")
-st.caption("Import ToS/Schwab statements — trade history, open positions, P&L, and strategy insights.")
+st.caption("Persistent account data from GSheets. Import new trades any time — no re-upload needed to view existing data.")
 
-# ── Session state ─────────────────────────────────────────────────────────────
-if "port_accounts" not in st.session_state:
-    st.session_state["port_accounts"] = {}      # {account_name: {trades, equities, options, ...}}
+# ── Load accounts from GSheet ─────────────────────────────────────────────────
+@st.cache_data(ttl=120)
+def _load_gsheet_accounts():
+    return list_broker_accounts()
 
-accounts: dict = st.session_state["port_accounts"]
+gsheet_accounts = _load_gsheet_accounts()
 
 # ── Colour helpers ────────────────────────────────────────────────────────────
 _GREEN  = "#16a34a"
@@ -83,139 +89,114 @@ tab_import, tab_pos, tab_log, tab_pnl, tab_insights = st.tabs([
 # 1 · IMPORT TAB
 # ══════════════════════════════════════════════════════════════════════════════
 with tab_import:
-    st.markdown("### 📤 Import Account Statement")
+    st.markdown("### 📤 Upload New Trades")
+    st.caption("Select an account and upload a fresh CSV. New trades are added automatically; existing data is never overwritten.")
 
-    # Format guide
-    with st.expander("📋 How to export from ToS / Schwab", expanded=False):
+    if gsheet_accounts.empty:
+        st.warning("No accounts found in GSheets. Create an account in Account Tracker first.")
+        st.stop()
+
+    # ── Account dropdown ──────────────────────────────────────────────────────
+    acct_list = gsheet_accounts[["account_id", "account_name", "broker_name"]].copy()
+    acct_list["label"] = acct_list["account_name"] + " · " + acct_list["broker_name"]
+    acct_options = dict(zip(acct_list["account_id"], acct_list["label"]))
+
+    sel_id = st.selectbox("Select account to update:", acct_options.keys(),
+                          format_func=lambda x: acct_options[x],
+                          key="port_acct_dropdown")
+    sel_row = gsheet_accounts[gsheet_accounts["account_id"] == sel_id].iloc[0]
+    sel_name = sel_row["account_name"]
+
+    st.divider()
+
+    # ── File upload ───────────────────────────────────────────────────────────
+    with st.expander("📋 How to export from your broker", expanded=False):
         st.markdown(
-            "1. Open **thinkorswim** → **Monitor** tab → **Account Statement**\n"
-            "2. Set date range (use *1 Year* for first import; shorter for delta updates)\n"
-            "3. Expand: **Account Trade History**, **Equities**, **Options**\n"
-            "4. *(Optional)* Hide Account Summary and Order History\n"
-            "5. Click **Export to File** (CSV) → upload below\n\n"
-            "> **Security tip:** Remove any row containing your account number "
-            "before uploading. Mark value / P&L data is fine to share — "
-            "it never leaves your browser session."
+            "**ToS / Schwab:**\n"
+            "1. thinkorswim → Monitor → Account Statement\n"
+            "2. Set date range (shorter for updates)\n"
+            "3. Expand: Account Trade History, Equities, Options\n"
+            "4. Export to File (CSV)\n\n"
+            "**Robinhood:**\n"
+            "1. Account → History\n"
+            "2. Filter to desired date range\n"
+            "3. Export\n\n"
+            "> Remove any row with your account number before uploading."
         )
 
-    col_up, col_info = st.columns([2, 1])
-    with col_up:
-        uploaded = st.file_uploader(
-            "Upload ToS / Schwab  or  Robinhood CSV",
-            type=["csv"],
-            help="ToS: Monitor → Account Statement → Export to File  |  "
-                 "Robinhood: Account → History → Export",
-            key="port_upload",
-        )
+    uploaded = st.file_uploader(
+        f"Upload CSV for {sel_name}:",
+        type=["csv"],
+        key="port_upload",
+    )
 
     if uploaded:
         content = uploaded.read().decode("utf-8", errors="replace")
-
-        # ── Auto-detect broker ────────────────────────────────────────────────
-        broker = detect_broker(content)
-        _broker_labels = {"tos": "ToS / Schwab", "robinhood": "Robinhood",
-                          "unknown": "Unknown"}
-        _broker_icons  = {"tos": "🟢", "robinhood": "🟣", "unknown": "❓"}
-
-        # Show detected format + delimiter debug info for RH
         from services.tos_parser import _rh_clean, _rh_delimiter
+
+        # Auto-detect broker
+        broker = detect_broker(content)
+        _broker_labels = {"tos": "ToS / Schwab", "robinhood": "Robinhood"}
+        _broker_icons  = {"tos": "🟢", "robinhood": "🟣"}
+
         if broker == "robinhood":
             _delim = _rh_delimiter(content)
-            _delim_label = "tab-separated (TSV)" if _delim == "\t" else "comma-separated (CSV)"
-            st.caption(f"🟣 Detected: **Robinhood** · delimiter: **{_delim_label}**")
+            _delim_label = "tab-separated" if _delim == "\t" else "comma-separated"
+            st.caption(f"🟣 **Robinhood** ({_delim_label})")
+        elif broker == "tos":
+            st.caption(f"🟢 **ToS / Schwab**")
         else:
-            st.caption(f"{_broker_icons.get(broker,'❓')} Detected format: "
-                       f"**{_broker_labels.get(broker,'Unknown')}**")
-
-        if broker == "unknown":
-            st.error(
-                "Could not recognise this file format.  \n"
-                "**ToS:** first row must start with `Account Name`  \n"
-                "**Robinhood:** header must contain `Activity Date` and `Trans Code`  \n\n"
-                f"First 200 chars of your file: `{content[:200]}`"
-            )
+            st.error(f"Unrecognized format. First 150 chars: `{content[:150]}`")
             st.stop()
 
-        # ── Account name ──────────────────────────────────────────────────────
-        # For ToS: extracted from the file automatically.
-        # For RH:  peek the file first so the input is pre-filled.
-        rh_name = "Robinhood Account"
-        if broker == "robinhood":
-            _peeked = peek_rh_account(content)
-            _auto   = _peeked != "Robinhood Account"
-            rh_name = st.text_input(
-                "Account name"
-                + (" *(auto-detected — edit if needed)*" if _auto
-                   else " *(not found in file — type yours)*"),
-                value=_peeked,
-                key="rh_acct_name",
-                placeholder="e.g. RH Individual, RH IRA",
-            )
-
-        # ── Parse ─────────────────────────────────────────────────────────────
+        # Parse
         try:
-            parsed = parse_broker_csv(content, rh_account_name=rh_name)
+            if broker == "robinhood":
+                _peeked = peek_rh_account(content)
+                parsed = parse_broker_csv(content, rh_account_name=sel_name)
+            else:
+                parsed = parse_broker_csv(content, rh_account_name=sel_name)
         except Exception as e:
-            st.error(f"Parse error: {e}  \n\nFirst 300 chars: `{content[:300]}`")
+            st.error(f"Parse error: {e}")
             st.stop()
 
-        acct = parsed["account_name"]
-        eq_count  = len(parsed["equities"])
-        opt_count = len(parsed["options"])
-
+        # Show what will be uploaded
         st.info(
-            f"**Account:** {acct}  ·  "
-            f"**Trades parsed:** {len(parsed['trades'])}  ·  "
-            + (f"**Open equities:** {eq_count}  ·  **Open options:** {opt_count}"
-               if eq_count or opt_count
-               else "*(Robinhood export has no open-position snapshot)*")
+            f"**Found:** {len(parsed['trades'])} trades  ·  "
+            f"{len(parsed['equities'])} open equities  ·  "
+            f"{len(parsed['options'])} open options"
         )
 
-        is_delta = acct in accounts
-        action   = "Delta merge (new trades only)" if is_delta else "First import (full history)"
-        st.caption(f"📌 {action}")
-
-        if st.button("✅  Import This File", type="primary", key="port_do_import"):
-            existing = accounts.get(acct, {})
-            merged   = merge_upload(existing, parsed)
-            merged["last_import"] = _dt.datetime.now().strftime("%Y-%m-%d %H:%M")
-            merged["broker"]      = broker
-            accounts[acct]        = merged
-            st.session_state["port_accounts"] = accounts
-            st.success(f"Imported! Account **{acct}** now has "
-                       f"{len(merged['trades'])} trade records.")
-            st.rerun()
-
-    # ── Imported accounts list ────────────────────────────────────────────────
-    if accounts:
-        st.divider()
-        st.markdown("#### 📁 Imported Accounts")
-        for aname, adata in accounts.items():
-            col_a, col_b, col_c, col_d = st.columns([3, 2, 2, 1])
-            _b = adata.get("broker", "tos")
-            _bicon = {"tos": "🟢 ToS/Schwab", "robinhood": "🟣 Robinhood"}.get(_b, "")
-            col_a.markdown(f"**{aname}** &nbsp; <small>{_bicon}</small>",
-                           unsafe_allow_html=True)
-            col_b.caption(f"{len(adata.get('trades', []))} trades")
-            col_c.caption(f"Last import: {adata.get('last_import', '—')}")
-            with col_d:
-                if st.button("🗑", key=f"del_{aname}", help="Remove this account"):
-                    del accounts[aname]
-                    st.session_state["port_accounts"] = accounts
-                    st.rerun()
-    else:
-        st.info("No accounts imported yet. Upload a CSV above to get started.")
+        if st.button("✅  Save to Portfolio", type="primary", key="port_do_save"):
+            with st.spinner("Saving to GSheets..."):
+                result = save_upload(sel_id, parsed)
+            st.success(
+                f"✅ Imported! New trades: **{result['new_trades']}**  ·  "
+                f"New cash flows: **{result['new_cashflows']}**  ·  "
+                f"Positions updated: **{result['positions_saved']}**  \n"
+                "Refresh other tabs to see updated data."
+            )
+            _load_gsheet_accounts.clear()  # bust cache
 
 
 # ── Account selector (shared across remaining tabs) ───────────────────────────
 def _account_selector(key_suffix: str = "") -> Optional[dict]:
-    if not accounts:
-        st.info("Import an account first (📤 Import tab).")
+    if gsheet_accounts.empty:
+        st.info("No accounts in GSheets yet.")
         return None
-    names = list(accounts.keys())
-    sel   = st.selectbox("Account:", names, key=f"acct_sel_{key_suffix}",
-                         label_visibility="collapsed")
-    return accounts[sel]
+    acct_list = gsheet_accounts[["account_id", "account_name", "broker_name"]].copy()
+    acct_list["label"] = acct_list["account_name"] + " (" + acct_list["broker_name"] + ")"
+    acct_options = dict(zip(acct_list["account_id"], acct_list["label"]))
+
+    sel_id = st.selectbox("Account:", acct_options.keys(),
+                          format_func=lambda x: acct_options[x],
+                          key=f"acct_sel_{key_suffix}",
+                          label_visibility="collapsed")
+
+    # Auto-load from GSheets
+    acct_row = gsheet_accounts[gsheet_accounts["account_id"] == sel_id].iloc[0]
+    acct_data = load_account_data(sel_id, acct_row["account_name"])
+    return acct_data
 
 
 # ══════════════════════════════════════════════════════════════════════════════
