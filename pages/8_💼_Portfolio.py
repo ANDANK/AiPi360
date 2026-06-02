@@ -342,12 +342,83 @@ with tab_pnl:
             st.info("No trades to analyze.")
         else:
             with st.spinner("Matching open/close pairs…"):
-                df_pnl = compute_realized_pnl(trades)
+                df_pnl_all = compute_realized_pnl(trades)
 
-            if df_pnl.empty:
+            if df_pnl_all.empty:
                 st.warning("No matched open/close pairs found yet. "
                            "Trades may still be open or data may be incomplete.")
             else:
+                # ── Date filter ───────────────────────────────────────────────
+                df_pnl_all["close_date"] = pd.to_datetime(df_pnl_all["close_date"])
+                min_dt = df_pnl_all["close_date"].min().date()
+                max_dt = df_pnl_all["close_date"].max().date()
+
+                # Build YYYY and YYYY-MMM choices from actual data
+                years   = sorted(df_pnl_all["close_date"].dt.year.unique(), reverse=True)
+                months  = sorted(
+                    df_pnl_all["close_date"].dt.to_period("M").astype(str).unique(),
+                    reverse=True,
+                )  # e.g. "2026-05", "2026-04", ...
+
+                dc1, dc2, dc3 = st.columns([1, 2, 3])
+                with dc1:
+                    filter_mode = st.radio(
+                        "Filter by", ["All time", "Year", "Month", "Custom range"],
+                        key="pnl_filter_mode", horizontal=False,
+                    )
+                with dc2:
+                    if filter_mode == "Year":
+                        sel_year = st.selectbox(
+                            "Year", [str(y) for y in years], key="pnl_year"
+                        )
+                    elif filter_mode == "Month":
+                        sel_month = st.selectbox(
+                            "Month (YYYY-MM)", months, key="pnl_month"
+                        )
+                    elif filter_mode == "Custom range":
+                        cr1, cr2 = st.columns(2)
+                        with cr1:
+                            date_from = st.date_input(
+                                "From", value=min_dt, min_value=min_dt,
+                                max_value=max_dt, key="pnl_from"
+                            )
+                        with cr2:
+                            date_to = st.date_input(
+                                "To", value=max_dt, min_value=min_dt,
+                                max_value=max_dt, key="pnl_to"
+                            )
+
+                # Apply filter
+                if filter_mode == "Year":
+                    df_pnl = df_pnl_all[df_pnl_all["close_date"].dt.year == int(sel_year)].copy()
+                    period_label = sel_year
+                elif filter_mode == "Month":
+                    y, m  = int(sel_month[:4]), int(sel_month[5:])
+                    df_pnl = df_pnl_all[
+                        (df_pnl_all["close_date"].dt.year  == y) &
+                        (df_pnl_all["close_date"].dt.month == m)
+                    ].copy()
+                    period_label = _dt.date(y, m, 1).strftime("%B %Y")
+                elif filter_mode == "Custom range":
+                    df_pnl = df_pnl_all[
+                        (df_pnl_all["close_date"].dt.date >= date_from) &
+                        (df_pnl_all["close_date"].dt.date <= date_to)
+                    ].copy()
+                    period_label = f"{date_from} → {date_to}"
+                else:
+                    df_pnl = df_pnl_all.copy()
+                    period_label = "All time"
+
+                with dc3:
+                    st.markdown("<br>", unsafe_allow_html=True)
+                    if df_pnl.empty:
+                        st.warning("No closed trades in this period.")
+                    else:
+                        st.info(f"📅 **{period_label}** · {len(df_pnl)} closed trades")
+
+                if df_pnl.empty:
+                    st.stop()
+
                 total_pnl   = df_pnl["pnl"].sum()
                 winners     = df_pnl[df_pnl["winner"] == True]
                 losers      = df_pnl[df_pnl["winner"] == False]
