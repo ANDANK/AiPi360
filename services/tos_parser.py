@@ -420,6 +420,21 @@ def _trade_sig(t: dict) -> str:
 
 import re as _re
 
+
+def _rh_clean(content: str) -> str:
+    """Strip UTF-8 BOM and normalise line endings."""
+    return content.lstrip("﻿").replace("\r\n", "\n").replace("\r", "\n")
+
+
+def _rh_delimiter(content: str) -> str:
+    """
+    Detect tab vs comma by counting occurrences in the header line.
+    Robinhood exports are tab-separated; some re-saves come out comma-separated.
+    """
+    header = content.lstrip("﻿").split("\n")[0]
+    return "\t" if header.count("\t") > header.count(",") else ","
+
+
 # ── Robinhood trans code master table ─────────────────────────────────────────
 # cat:
 #   "option"    → option trade   (feeds P&L engine)
@@ -547,7 +562,9 @@ def parse_rh_csv(content: str,
         cash    : ACH INT CDIV RTP ITRF T/A GMPC GOLD FEE LCAP SPR
         corporate: SPL OCA SOFF SXCH CONV ACATO REC
     """
-    reader     = csv.DictReader(io.StringIO(content))
+    content    = _rh_clean(content)
+    delim      = _rh_delimiter(content)
+    reader     = csv.DictReader(io.StringIO(content), delimiter=delim)
     rows       = list(reader)
     trades     : list[dict] = []
     cash_flows : list[dict] = []
@@ -682,11 +699,12 @@ def parse_rh_csv(content: str,
 def detect_broker(content: str) -> str:
     """
     Return 'tos', 'robinhood', or 'unknown' based on CSV header fingerprint.
+    Handles UTF-8 BOM and both comma- and tab-separated Robinhood exports.
     """
-    first_lines = content.lstrip()[:500]
-    if first_lines.startswith("Account Name"):
+    snippet = _rh_clean(content)[:600]
+    if snippet.startswith("Account Name"):
         return "tos"
-    if "Activity Date" in first_lines and "Trans Code" in first_lines:
+    if "Activity Date" in snippet and "Trans Code" in snippet:
         return "robinhood"
     return "unknown"
 

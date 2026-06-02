@@ -115,12 +115,24 @@ with tab_import:
         _broker_labels = {"tos": "ToS / Schwab", "robinhood": "Robinhood",
                           "unknown": "Unknown"}
         _broker_icons  = {"tos": "🟢", "robinhood": "🟣", "unknown": "❓"}
-        st.caption(f"{_broker_icons.get(broker,'❓')} Detected format: "
-                   f"**{_broker_labels.get(broker,'Unknown')}**")
+
+        # Show detected format + delimiter debug info for RH
+        from services.tos_parser import _rh_clean, _rh_delimiter
+        if broker == "robinhood":
+            _delim = _rh_delimiter(content)
+            _delim_label = "tab-separated (TSV)" if _delim == "\t" else "comma-separated (CSV)"
+            st.caption(f"🟣 Detected: **Robinhood** · delimiter: **{_delim_label}**")
+        else:
+            st.caption(f"{_broker_icons.get(broker,'❓')} Detected format: "
+                       f"**{_broker_labels.get(broker,'Unknown')}**")
 
         if broker == "unknown":
-            st.error("Could not recognise this file. "
-                     "Expected a ToS/Schwab or Robinhood CSV export.")
+            st.error(
+                "Could not recognise this file format.  \n"
+                "**ToS:** first row must start with `Account Name`  \n"
+                "**Robinhood:** header must contain `Activity Date` and `Trans Code`  \n\n"
+                f"First 200 chars of your file: `{content[:200]}`"
+            )
             st.stop()
 
         # ── For Robinhood, let user set the account name ──────────────────────
@@ -137,7 +149,7 @@ with tab_import:
         try:
             parsed = parse_broker_csv(content, rh_account_name=rh_name)
         except Exception as e:
-            st.error(f"Parse error: {e}")
+            st.error(f"Parse error: {e}  \n\nFirst 300 chars: `{content[:300]}`")
             st.stop()
 
         acct = parsed["account_name"]
