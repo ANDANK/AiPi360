@@ -394,6 +394,217 @@ def _trade_sig(t: dict) -> str:
     ])
 
 
+# ══════════════════════════════════════════════════════════════════════════════
+# ROBINHOOD PARSER
+# ══════════════════════════════════════════════════════════════════════════════
+#
+# RH CSV columns:
+#   Activity Date | Process Date | Settle Date | Instrument | Description
+#   | Trans Code | Quantity | Price | Amount
+#
+# Trans Code → our (side, pos_effect, is_option):
+#   BTO  → BUY  / TO OPEN  / option
+#   STO  → SELL / TO OPEN  / option
+#   BTC  → BUY  / TO CLOSE / option
+#   STC  → SELL / TO CLOSE / option
+#   Buy  → BUY  / TO OPEN  / stock
+#   Sell → SELL / TO CLOSE / stock
+#   OEXP → BUY  / TO CLOSE / option  (expired worthless, price=0)
+#   OASGN→ BUY  / TO CLOSE / option  (assigned, price=0; stock row follows)
+#   OEXRC→ SELL / TO CLOSE / option  (exercised, price=0)
+#
+# Option Description format:  "{SYMBOL} {M/D/YYYY} {Put|Call} ${STRIKE}"
+#   e.g.  "SOFI 5/8/2026 Put $16.00"
+#         "NOW 1/21/2028 Call $85.00"
+# ──────────────────────────────────────────────────────────────────────────────
+
+import re as _re
+
+_RH_CODES: dict[str, dict] = {
+    "BTO":   {"side": "BUY",  "pos_effect": "TO OPEN",  "is_option": True},
+    "STO":   {"side": "SELL", "pos_effect": "TO OPEN",  "is_option": True},
+    "BTC":   {"side": "BUY",  "pos_effect": "TO CLOSE", "is_option": True},
+    "STC":   {"side": "SELL", "pos_effect": "TO CLOSE", "is_option": True},
+    "Buy":   {"side": "BUY",  "pos_effect": "TO OPEN",  "is_option": False},
+    "Sell":  {"side": "SELL", "pos_effect": "TO CLOSE", "is_option": False},
+    "OEXP":  {"side": "BUY",  "pos_effect": "TO CLOSE", "is_option": True},   # expired @ 0
+    "OASGN": {"side": "BUY",  "pos_effect": "TO CLOSE", "is_option": True},   # assigned @ 0
+    "OEXRC": {"side": "SELL", "pos_effect": "TO CLOSE", "is_option": True},   # exercised @ 0
+}
+
+_RH_OPT_RE = _re.compile(
+    r"^(\w[\w.\-]+)\s+(\d{1,2}/\d{1,2}/\d{4})\s+(Put|Call)\s+\$(\d+\.?\d*)",
+    _re.IGNORECASE,
+)
+
+
+def _parse_rh_opt_desc(desc: str) -> dict:
+    """
+    Parse 'SOFI 5/8/2026 Put $16.00' → {expiry, opt_type (CALL/PUT), strike}.
+    Returns {} if not an option description.
+    """
+    m = _RH_OPT_RE.match(desc.strip().splitlines()[0])   # use first line only
+    if not m:
+        return {}
+    _, date_str, opt_type, strike_str = m.groups()
+    try:
+        exp = datetime.strptime(date_str, "%m/%d/%Y").date()
+    except ValueError:
+        exp = None
+    return {
+        "expiry":   exp,
+        "opt_type": opt_type.upper(),      # "CALL" or "PUT"
+        "strike":   _f(strike_str),
+    }
+
+
+def parse_rh_csv(content: str,
+                 account_name: str = "Robinhood Account") -> dict:
+    """
+    Parse a Robinhood activity CSV export.
+    Returns the same dict shape as parse_tos_csv:
+        account_name, trades, equities (empty), options (empty).
+
+    Notes:
+    - Robinhood exports do NOT include current open-position snapshots,
+      so equities and options are always empty lists.
+    - OASGN/OEXP/OEXRC close the option at price=0 (full outcome).
+      The resulting stock delivery (Buy row) is treated as a new stock position.
+    - Price column is per-share for options (consistent with ToS).
+    """
+    reader = csv.DictReader(io.StringIO(content))
+    rows   = list(reader)
+    trades: list[dict] = []
+
+    for row in rows:
+        trans_code  = _s(row.get("Trans Code", ""))
+        instrument  = _s(row.get("Instrument", ""))
+        description = _s(row.get("Description", "")).replace("\n", " ")
+        act_raw     = _s(row.get("Activity Date", ""))
+        qty_raw     = _s(row.get("Quantity", ""))
+        price_raw   = _s(row.get("Price", ""))
+
+        if not instrument or trans_code not in _RH_CODES:
+            continue                   # skip dividends, ACH, transfers, etc.
+
+        code   = _RH_CODES[trans_code]
+        side   = code["side"]
+        pos    = code["pos_effect"]
+        is_opt = code["is_option"]
+
+        # Parse execution date
+        dt = None
+        for fmt in ("%m/%d/%Y", "%Y-%m-%d"):
+            try:
+                dt = datetime.strptime(act_raw, fmt)
+                break
+            except ValueError:
+                pass
+
+        # Parse quantity (always positive; sign comes from side)
+        qty_abs = abs(_i(qty_raw) or 0)
+        qty     = -qty_abs if side == "SELL" else qty_abs
+
+        # Parse price per share
+        price = _f(price_raw)
+
+        # Option fields
+        expiry     : Optional[date] = None
+        expiry_str : str            = ""
+        strike     : Optional[float] = None
+        instr_type : str            = "STOCK"
+
+        if is_opt:
+            opt = _parse_rh_opt_desc(description)
+            expiry     = opt.get("expiry")
+            expiry_str = expiry.strftime("%d %b %y") if expiry else ""
+            strike     = opt.get("strike")
+            instr_type = opt.get("opt_type", "CALL")
+            # Assigned / expired / exercised close at 0
+            if trans_code in ("OASGN", "OEXP", "OEXRC") and not price:
+                price = 0.0
+        else:
+            instr_type = "STOCK"
+
+        # Stock delivery after assignment — tag it so UI can flag it
+        is_assignment_delivery = (
+            not is_opt
+            and "option assigned" in description.lower()
+        )
+
+        is_leaps = (
+            is_opt and expiry and dt is not None
+            and (expiry - dt.date()).days > 365
+        )
+
+        trade = {
+            "datetime":               dt,
+            "date_str":               dt.strftime("%Y-%m-%d") if dt else "",
+            "spread_type":            "",
+            "side":                   side,
+            "qty":                    qty,
+            "pos_effect":             pos,
+            "symbol":                 instrument,
+            "expiry":                 expiry,
+            "expiry_str":             expiry_str,
+            "strike":                 strike,
+            "instr_type":             instr_type,
+            "price":                  price,
+            "net_price":              price,
+            "order_type":             "MKT",
+            "is_option":              is_opt,
+            "is_stock":               not is_opt,
+            "is_leaps":               is_leaps,
+            "is_continuation":        False,
+            "broker":                 "Robinhood",
+            "rh_trans_code":          trans_code,
+            "is_assignment_delivery": is_assignment_delivery,
+        }
+        trade["strategy"] = _classify_strategy(trade)
+        if is_assignment_delivery:
+            trade["strategy"] = "CSP Assignment (stock)"
+        trades.append(trade)
+
+    return {
+        "account_name": account_name,
+        "trades":       trades,
+        "equities":     [],   # RH CSV has no open-position snapshot
+        "options":      [],
+        "broker":       "Robinhood",
+    }
+
+
+# ── Auto-detect broker format ─────────────────────────────────────────────────
+
+def detect_broker(content: str) -> str:
+    """
+    Return 'tos', 'robinhood', or 'unknown' based on CSV header fingerprint.
+    """
+    first_lines = content.lstrip()[:500]
+    if first_lines.startswith("Account Name"):
+        return "tos"
+    if "Activity Date" in first_lines and "Trans Code" in first_lines:
+        return "robinhood"
+    return "unknown"
+
+
+def parse_broker_csv(content: str,
+                     rh_account_name: str = "Robinhood Account") -> dict:
+    """
+    Detect broker format and call the correct parser.
+    Returns the standard {account_name, trades, equities, options} dict.
+    """
+    broker = detect_broker(content)
+    if broker == "tos":
+        return parse_tos_csv(content)
+    if broker == "robinhood":
+        return parse_rh_csv(content, account_name=rh_account_name)
+    raise ValueError(
+        "Unrecognised CSV format. Expected a ToS/Schwab or Robinhood export."
+    )
+
+
+# ─────────────────────────────────────────────────────────────────────────────
 def merge_upload(existing: dict, new_parsed: dict) -> dict:
     """
     Merge a delta upload into existing account data.

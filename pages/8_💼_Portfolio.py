@@ -27,8 +27,9 @@ inject_3d_tab_css()
 
 from services.tos_parser import (
     compute_realized_pnl,
+    detect_broker,
     merge_upload,
-    parse_tos_csv,
+    parse_broker_csv,
 )
 
 st.title("💼 Portfolio & Trading Accounts")
@@ -99,21 +100,57 @@ with tab_import:
     col_up, col_info = st.columns([2, 1])
     with col_up:
         uploaded = st.file_uploader(
-            "Upload ToS / Schwab CSV",
+            "Upload ToS / Schwab  or  Robinhood CSV",
             type=["csv"],
-            help="Export from ToS → Monitor → Account Statement → Export to File",
+            help="ToS: Monitor → Account Statement → Export to File  |  "
+                 "Robinhood: Account → History → Export",
             key="port_upload",
         )
 
     if uploaded:
         content = uploaded.read().decode("utf-8", errors="replace")
-        parsed  = parse_tos_csv(content)
-        acct    = parsed["account_name"]
 
-        st.info(f"**Detected account:** {acct}  ·  "
-                f"**Trades:** {len(parsed['trades'])}  ·  "
-                f"**Open equities:** {len(parsed['equities'])}  ·  "
-                f"**Open options:** {len(parsed['options'])}")
+        # ── Auto-detect broker ────────────────────────────────────────────────
+        broker = detect_broker(content)
+        _broker_labels = {"tos": "ToS / Schwab", "robinhood": "Robinhood",
+                          "unknown": "Unknown"}
+        _broker_icons  = {"tos": "🟢", "robinhood": "🟣", "unknown": "❓"}
+        st.caption(f"{_broker_icons.get(broker,'❓')} Detected format: "
+                   f"**{_broker_labels.get(broker,'Unknown')}**")
+
+        if broker == "unknown":
+            st.error("Could not recognise this file. "
+                     "Expected a ToS/Schwab or Robinhood CSV export.")
+            st.stop()
+
+        # ── For Robinhood, let user set the account name ──────────────────────
+        rh_name = "Robinhood Account"
+        if broker == "robinhood":
+            rh_name = st.text_input(
+                "Account name (Robinhood doesn't include one — type yours):",
+                value="Robinhood Account",
+                key="rh_acct_name",
+                placeholder="e.g. RH Individual, RH IRA",
+            )
+
+        # ── Parse ─────────────────────────────────────────────────────────────
+        try:
+            parsed = parse_broker_csv(content, rh_account_name=rh_name)
+        except Exception as e:
+            st.error(f"Parse error: {e}")
+            st.stop()
+
+        acct = parsed["account_name"]
+        eq_count  = len(parsed["equities"])
+        opt_count = len(parsed["options"])
+
+        st.info(
+            f"**Account:** {acct}  ·  "
+            f"**Trades parsed:** {len(parsed['trades'])}  ·  "
+            + (f"**Open equities:** {eq_count}  ·  **Open options:** {opt_count}"
+               if eq_count or opt_count
+               else "*(Robinhood export has no open-position snapshot)*")
+        )
 
         is_delta = acct in accounts
         action   = "Delta merge (new trades only)" if is_delta else "First import (full history)"
@@ -123,6 +160,7 @@ with tab_import:
             existing = accounts.get(acct, {})
             merged   = merge_upload(existing, parsed)
             merged["last_import"] = _dt.datetime.now().strftime("%Y-%m-%d %H:%M")
+            merged["broker"]      = broker
             accounts[acct]        = merged
             st.session_state["port_accounts"] = accounts
             st.success(f"Imported! Account **{acct}** now has "
@@ -135,7 +173,10 @@ with tab_import:
         st.markdown("#### 📁 Imported Accounts")
         for aname, adata in accounts.items():
             col_a, col_b, col_c, col_d = st.columns([3, 2, 2, 1])
-            col_a.markdown(f"**{aname}**")
+            _b = adata.get("broker", "tos")
+            _bicon = {"tos": "🟢 ToS/Schwab", "robinhood": "🟣 Robinhood"}.get(_b, "")
+            col_a.markdown(f"**{aname}** &nbsp; <small>{_bicon}</small>",
+                           unsafe_allow_html=True)
             col_b.caption(f"{len(adata.get('trades', []))} trades")
             col_c.caption(f"Last import: {adata.get('last_import', '—')}")
             with col_d:
