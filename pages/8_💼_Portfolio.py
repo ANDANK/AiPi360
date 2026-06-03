@@ -618,14 +618,27 @@ with tab_pnl:
                 profit_factor = abs(winners["pnl"].sum() / losers["pnl"].sum()) \
                                 if losers["pnl"].sum() != 0 else float("inf")
 
+                # ── Options vs Stock breakdown ────────────────────────────────
+                opt_pnl   = df_pnl[df_pnl["opt_type"] != ""]["pnl"].sum()
+                stock_pnl = df_pnl[df_pnl["opt_type"] == ""]["pnl"].sum()
+                sb1, sb2, sb3 = st.columns(3)
+                sb1.metric("Total Realized P&L", _fmt_pnl(total_pnl))
+                sb2.metric("Options P&L",         _fmt_pnl(opt_pnl),
+                           help="Realized P&L from options trades (premiums)")
+                sb3.metric("Stock P&L",            _fmt_pnl(stock_pnl),
+                           help="Realized P&L from stock/ETF trades. "
+                                "Note: all-time stock P&L may include gains from "
+                                "option exercise deliveries which Robinhood may "
+                                "account for differently.")
+                st.divider()
+
                 # ── Summary metrics ───────────────────────────────────────────
-                m1, m2, m3, m4, m5 = st.columns(5)
-                m1.metric("Total Realized P&L", _fmt_pnl(total_pnl))
-                m2.metric("Trades", len(df_pnl))
-                m3.metric("Win Rate", f"{win_rate:.0f}%")
-                m4.metric("Avg Winner / Loser",
+                m1, m2, m3, m4 = st.columns(4)
+                m1.metric("Trades", len(df_pnl))
+                m2.metric("Win Rate", f"{win_rate:.0f}%")
+                m3.metric("Avg Winner / Loser",
                           f"${avg_win:,.0f} / ${avg_loss:,.0f}")
-                m5.metric("Profit Factor", f"{profit_factor:.2f}"
+                m4.metric("Profit Factor", f"{profit_factor:.2f}"
                           if profit_factor != float("inf") else "∞")
 
                 st.divider()
