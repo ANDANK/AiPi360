@@ -283,10 +283,38 @@ def parse_tos_csv(content: str) -> dict:
 
 # ─────────────────────────── P&L matching engine ─────────────────────────────
 
+# ── Stock split history ────────────────────────────────────────────────────────
+# Robinhood CSV does NOT always export SPL records for large-cap stocks.
+# Without split adjustment, FIFO matches post-split sells against pre-split
+# cost basis → phantom losses (e.g. AMZN 20:1 split: cost $3,420 → $171).
+#
+# Format: { "SYMBOL": [(effective_date, ratio), ...] }
+# ratio > 1 = forward split (more shares, lower price)
+# ratio < 1 = reverse split (fewer shares, higher price)
+_STOCK_SPLITS: dict[str, list[tuple]] = {
+    "AMZN": [(date(2022, 6, 6),   20.0)],   # 20:1 Jun 2022
+    "TSLA": [(date(2020, 8, 31),   5.0),     # 5:1 Aug 2020
+             (date(2022, 8, 25),   3.0)],    # 3:1 Aug 2022
+    "NVDA": [(date(2021, 7, 20),   4.0),     # 4:1 Jul 2021
+             (date(2024, 6, 10),  10.0)],    # 10:1 Jun 2024
+    "AAPL": [(date(2020, 8, 31),   4.0)],    # 4:1 Aug 2020
+    "GOOGL": [(date(2022, 7, 18), 20.0)],   # 20:1 Jul 2022
+    "GOOG":  [(date(2022, 7, 18), 20.0)],
+    "SHOP":  [(date(2022, 6, 29), 10.0)],   # 10:1 Jun 2022
+    "DXCM":  [(date(2022, 6, 10),  4.0)],   # 4:1 Jun 2022
+}
+
+
 def compute_realized_pnl(trades: list[dict]) -> pd.DataFrame:
     """
     FIFO-match open/close pairs from trade history.
     Options multiplier = 100.  Stocks = 1.
+
+    Inline split adjustment: as the chronological scan crosses a known split
+    date, all lots still in the FIFO queue are repriced and re-quantified.
+    This correctly handles positions that straddled a split without touching
+    lots that were already closed before the split date.
+
     Returns DataFrame sorted by close_date descending.
     """
     # Group by instrument key
@@ -314,6 +342,12 @@ def compute_realized_pnl(trades: list[dict]) -> pd.DataFrame:
         longs: list[dict]  = []   # BUY TO OPEN queue
         shorts: list[dict] = []   # SELL TO OPEN queue
 
+        # Prepare inline split schedule for this symbol (stocks only)
+        pending_splits: list[tuple] = []
+        if not is_option and symbol in _STOCK_SPLITS:
+            pending_splits = sorted(_STOCK_SPLITS[symbol])   # [(date, ratio), ...]
+        split_idx = 0   # pointer to next unapplied split
+
         for t in sorted_grp:
             side  = t.get("side", "")
             pos   = t.get("pos_effect", "")
@@ -329,6 +363,18 @@ def compute_realized_pnl(trades: list[dict]) -> pd.DataFrame:
             # Ensure price is numeric
             if price is None:
                 price = 0
+
+            # ── Apply any stock splits that occurred before this trade ─────────
+            if dt and split_idx < len(pending_splits):
+                while split_idx < len(pending_splits):
+                    split_date, ratio = pending_splits[split_idx]
+                    if dt.date() < split_date:
+                        break   # this split hasn't happened yet
+                    # Split happened — adjust all open lots still in queue
+                    for lot in longs:
+                        lot["price"] /= ratio
+                        lot["qty"]   *= ratio
+                    split_idx += 1
 
             if pos == "TO OPEN":
                 queue = longs if side == "BUY" else shorts
@@ -561,9 +607,10 @@ _RH_MASTER: dict[str, dict] = {
 }
 
 _RH_OPT_RE = _re.compile(
-    r"^(\w[\w.\-]+)\s+(\d{1,2}/\d{1,2}/\d{4})\s+(Put|Call)\s+\$(\d+\.?\d*)",
+    r"^(\w[\w.\-]*)\s+(\d{1,2}/\d{1,2}/\d{4})\s+(Put|Call)\s+\$(\d+\.?\d*)",
     _re.IGNORECASE,
 )
+# Note: [\w.\-]* (not +) allows single-character tickers like F, T, X, C, V
 
 
 _RH_DESC_STRIP = (
@@ -689,8 +736,13 @@ def parse_rh_csv(content: str,
         pos     = meta["pos_effect"]
         is_opt  = (cat == "option")
 
-        qty_abs = abs(_i(qty_raw) or 0)
-        qty     = -qty_abs if side == "SELL" else qty_abs
+        # Use float qty for stocks (handles fractional share dividend reinvestment),
+        # int qty for options (always whole contracts).
+        if is_opt:
+            qty_abs = abs(_i(qty_raw) or 0)
+        else:
+            qty_abs = abs(_f(qty_raw) or 0.0)
+        qty = -qty_abs if side == "SELL" else qty_abs
 
         # OEXP/OASGN rows have empty Quantity; always 1 contract
         if trans_code in ("OEXP", "OASGN", "OEXCS", "OEXRC") and qty == 0:
