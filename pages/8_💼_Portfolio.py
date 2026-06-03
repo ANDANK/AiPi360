@@ -48,6 +48,83 @@ def _load_gsheet_accounts():
 
 gsheet_accounts = _load_gsheet_accounts()
 
+# ══════════════════════════════════════════════════════════════════════════════
+# GLOBAL ACCOUNT SELECTOR  (above all tabs)
+# ══════════════════════════════════════════════════════════════════════════════
+def _build_global_selector() -> list[dict]:
+    """
+    Render a single multi-select account picker above the tabs.
+    Returns a merged account-data dict (trades / equities / options / cash_flows
+    combined from all selected accounts).
+    Returns [] if no accounts or none selected.
+    """
+    if gsheet_accounts.empty:
+        return []
+
+    acct_list = gsheet_accounts[["account_id", "account_name", "broker_name"]].copy()
+    acct_list["label"] = acct_list["account_name"] + " (" + acct_list["broker_name"] + ")"
+    id_to_label = dict(zip(acct_list["account_id"], acct_list["label"]))
+    all_ids     = list(id_to_label.keys())
+
+    # Persist selection across reruns
+    if "port_sel_accts" not in st.session_state:
+        st.session_state["port_sel_accts"] = [all_ids[0]] if all_ids else []
+
+    col_sel, col_all, col_none = st.columns([6, 1, 1])
+    with col_sel:
+        selected = st.multiselect(
+            "📂 Accounts",
+            options=all_ids,
+            default=st.session_state["port_sel_accts"],
+            format_func=lambda x: id_to_label[x],
+            key="port_acct_multi",
+            label_visibility="collapsed",
+        )
+    with col_all:
+        if st.button("All", key="port_sel_all", use_container_width=True):
+            st.session_state["port_sel_accts"] = all_ids
+            st.rerun()
+    with col_none:
+        if st.button("Clear", key="port_sel_none", use_container_width=True):
+            st.session_state["port_sel_accts"] = []
+            st.rerun()
+
+    st.session_state["port_sel_accts"] = selected
+
+    if not selected:
+        st.info("Select at least one account above.")
+        return []
+
+    # Load & merge all selected accounts; tag each trade with its account name
+    merged = {"trades": [], "equities": [], "options": [], "cash_flows": [],
+              "account_name": ""}
+    names = []
+    for acct_id in selected:
+        row       = gsheet_accounts[gsheet_accounts["account_id"] == acct_id].iloc[0]
+        acct_name = row["account_name"]
+        acct_data = load_account_data(acct_id, acct_name)
+        # Tag trades with account name so Trade Log / P&L can show source
+        tagged_trades = [{**t, "_account": acct_name}
+                         for t in acct_data.get("trades", [])]
+        merged["trades"]      += tagged_trades
+        merged["equities"]    += acct_data.get("equities", [])
+        merged["options"]     += acct_data.get("options", [])
+        merged["cash_flows"]  += acct_data.get("cash_flows", [])
+        names.append(acct_name)
+    merged["account_name"] = " + ".join(names)
+    return merged
+
+
+# Render selector and load data once — reused by all tabs
+with st.container():
+    acct_data_global = _build_global_selector()
+    if acct_data_global:
+        st.caption(f"Viewing: **{acct_data_global['account_name']}** · "
+                   f"{len(acct_data_global['trades']):,} trades · "
+                   f"{len(acct_data_global['equities'])} equity positions · "
+                   f"{len(acct_data_global['options'])} option positions")
+    st.divider()
+
 # ── Colour helpers ────────────────────────────────────────────────────────────
 _GREEN  = "#16a34a"
 _RED    = "#dc2626"
@@ -193,32 +270,12 @@ if st.session_state.get("port_import_result"):
         st.rerun()
 
 
-# ── Account selector (shared across remaining tabs) ───────────────────────────
-def _account_selector(key_suffix: str = "") -> Optional[dict]:
-    if gsheet_accounts.empty:
-        st.info("No accounts in GSheets yet.")
-        return None
-    acct_list = gsheet_accounts[["account_id", "account_name", "broker_name"]].copy()
-    acct_list["label"] = acct_list["account_name"] + " (" + acct_list["broker_name"] + ")"
-    acct_options = dict(zip(acct_list["account_id"], acct_list["label"]))
-
-    sel_id = st.selectbox("Account:", acct_options.keys(),
-                          format_func=lambda x: acct_options[x],
-                          key=f"acct_sel_{key_suffix}",
-                          label_visibility="collapsed")
-
-    # Auto-load from GSheets
-    acct_row = gsheet_accounts[gsheet_accounts["account_id"] == sel_id].iloc[0]
-    acct_data = load_account_data(sel_id, acct_row["account_name"])
-    return acct_data
-
-
 # ══════════════════════════════════════════════════════════════════════════════
 # 2 · OPEN POSITIONS TAB
 # ══════════════════════════════════════════════════════════════════════════════
 with tab_pos:
     st.markdown("### 💼 Open Positions")
-    acct_data = _account_selector("pos")
+    acct_data = acct_data_global
     if acct_data:
         eq_tab, opt_tab = st.tabs(["📈 Equities", "🎯 Options"])
 
@@ -315,7 +372,7 @@ with tab_pos:
 # ══════════════════════════════════════════════════════════════════════════════
 with tab_log:
     st.markdown("### 📋 Trade Log")
-    acct_data = _account_selector("log")
+    acct_data = acct_data_global
     if acct_data:
         trades = acct_data.get("trades", [])
         if not trades:
@@ -351,10 +408,12 @@ with tab_log:
 
             st.caption(f"Showing {len(filtered):,} of {len(df_all):,} trades")
 
+            show_acct_col = "_account" in df_all.columns and \
+                            df_all["_account"].nunique() > 1
             disp_cols = ["date_str", "symbol", "spread_type", "side", "qty",
                          "pos_effect", "instr_type", "expiry_str", "strike",
                          "price", "strategy"]
-            disp = filtered[disp_cols].rename(columns={
+            rename_map = {
                 "date_str":    "Date",
                 "symbol":      "Symbol",
                 "spread_type": "Spread",
@@ -366,7 +425,11 @@ with tab_log:
                 "strike":      "Strike",
                 "price":       "Price",
                 "strategy":    "Strategy",
-            })
+            }
+            if show_acct_col:
+                disp_cols = ["_account"] + disp_cols
+                rename_map["_account"] = "Account"
+            disp = filtered[disp_cols].rename(columns=rename_map)
 
             def _side_color(row):
                 color = "#dcfce7" if row["Side"] == "BUY" else "#fee2e2"
@@ -390,7 +453,7 @@ with tab_log:
 # ══════════════════════════════════════════════════════════════════════════════
 with tab_pnl:
     st.markdown("### 💰 Realized P&L Analysis")
-    acct_data = _account_selector("pnl")
+    acct_data = acct_data_global
     if acct_data:
         trades = acct_data.get("trades", [])
         if not trades:
@@ -683,7 +746,7 @@ with tab_pnl:
 # ══════════════════════════════════════════════════════════════════════════════
 with tab_insights:
     st.markdown("### 🔍 Trade Insights")
-    acct_data = _account_selector("ins")
+    acct_data = acct_data_global
     if acct_data:
         trades = acct_data.get("trades", [])
         if not trades:
