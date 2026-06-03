@@ -170,13 +170,27 @@ with tab_import:
         if st.button("✅  Save to Portfolio", type="primary", key="port_do_save"):
             with st.spinner("Saving to GSheets..."):
                 result = save_upload(sel_id, parsed)
-            st.success(
-                f"✅ Imported! New trades: **{result['new_trades']}**  ·  "
-                f"New cash flows: **{result['new_cashflows']}**  ·  "
-                f"Positions updated: **{result['positions_saved']}**  \n"
-                "Refresh other tabs to see updated data."
-            )
-            _load_gsheet_accounts.clear()  # bust cache
+            _load_gsheet_accounts.clear()
+            # Store result in session state so success banner persists after rerun
+            st.session_state["port_import_result"] = {
+                "new_trades":      result["new_trades"],
+                "new_cashflows":   result["new_cashflows"],
+                "positions_saved": result["positions_saved"],
+                "acct_id":         sel_id,
+            }
+            st.rerun()
+
+# ── Post-import success banner + Refresh button (outside upload block) ────────
+if st.session_state.get("port_import_result"):
+    _res = st.session_state["port_import_result"]
+    st.success(
+        f"✅ Imported! New trades: **{_res['new_trades']}**  ·  "
+        f"New cash flows: **{_res['new_cashflows']}**  ·  "
+        f"Positions updated: **{_res['positions_saved']}**"
+    )
+    if st.button("🔄  Refresh All Tabs", type="secondary", key="port_refresh"):
+        del st.session_state["port_import_result"]
+        st.rerun()
 
 
 # ── Account selector (shared across remaining tabs) ───────────────────────────

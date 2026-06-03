@@ -674,6 +674,7 @@ def parse_rh_csv(content: str,
     # Use csv.DictReader directly to handle multiline quoted fields properly
     reader = csv.DictReader(io.StringIO(content))
     rows = list(reader)
+    print(f"[RH PARSER] rows={len(rows)} fieldnames={reader.fieldnames} first_code={rows[0].get('Trans Code','?') if rows else 'NO ROWS'}")
     trades     : list[dict] = []
     cash_flows : list[dict] = []
     corporates : list[dict] = []
