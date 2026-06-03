@@ -36,6 +36,7 @@ from services.portfolio_store import (
     list_broker_accounts,
     load_account_data,
     save_upload,
+    clear_account_data,
 )
 
 st.title("💼 Portfolio & Trading Accounts")
@@ -268,6 +269,36 @@ if st.session_state.get("port_import_result"):
     if st.button("🔄  Refresh All Tabs", type="secondary", key="port_refresh"):
         del st.session_state["port_import_result"]
         st.rerun()
+
+# ── Danger zone: Clear & Re-import ───────────────────────────────────────────
+with tab_import:
+    st.divider()
+    with st.expander("🗑️  Clear Account Data (for clean re-import)", expanded=False):
+        st.warning(
+            "**This permanently deletes all stored trades, cash flows, and positions "
+            f"for the selected account from GSheets.**  \n"
+            "Use this when you want to re-import from scratch with corrected data. "
+            "The account itself (in Account Tracker) is NOT affected."
+        )
+
+        # Two-step confirmation: checkbox then button
+        confirmed = st.checkbox(
+            f"Yes, I want to clear all data for **{sel_name}**",
+            key="port_clear_confirm",
+        )
+        if confirmed:
+            if st.button("🗑️  Clear All Data Now", type="primary",
+                         key="port_clear_go"):
+                with st.spinner(f"Clearing data for {sel_name}…"):
+                    result = clear_account_data(sel_id, clear_positions=True)
+                cleared_list = ", ".join(result["tabs_cleared"]) or "none"
+                st.success(
+                    f"✅ Cleared {len(result['tabs_cleared'])} tabs: `{cleared_list}`  \n"
+                    "You can now upload fresh CSV files for this account."
+                )
+                _load_gsheet_accounts.clear()
+                st.session_state.pop("port_clear_confirm", None)
+                st.rerun()
 
 
 # ══════════════════════════════════════════════════════════════════════════════

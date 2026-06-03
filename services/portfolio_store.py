@@ -288,6 +288,33 @@ def load_account_data(acct_id: str, acct_name: str = "") -> dict:
     }
 
 
+def clear_account_data(acct_id: str, clear_positions: bool = True) -> dict:
+    """
+    Wipe all stored data for an account from GSheets.
+    Returns {tabs_cleared: list[str]}.
+    Useful before a full clean re-import to avoid stale / duplicate rows.
+    """
+    from backend.gsheet import _get_or_create_ws
+    cleared = []
+    tabs = [f"TRX_{acct_id}", f"CASHF_{acct_id}"]
+    if clear_positions:
+        tabs.append(f"POS_{acct_id}")
+
+    for tab in tabs:
+        try:
+            ws = _get_or_create_ws(tab)
+            ws.clear()
+            cleared.append(tab)
+        except Exception:
+            pass   # tab might not exist yet — that's fine
+
+    # Bust read cache so subsequent loads see empty sheets
+    from backend.gsheet import read_sheet
+    read_sheet.clear()
+
+    return {"tabs_cleared": cleared}
+
+
 def save_upload(acct_id: str, parsed: dict) -> dict:
     """
     Delta-merge new upload data into GSheets for this account.
