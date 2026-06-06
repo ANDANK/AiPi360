@@ -6,17 +6,23 @@ import streamlit as st
 from datetime import date, timedelta
 import pandas as pd
 
+# Read auth state BEFORE set_page_config so we can collapse sidebar on login screen
+_authenticated = st.session_state.get("authenticated", False)
+
 st.set_page_config(
     page_title="AiPi360 · Home",
     page_icon="🏠",
     layout="wide",
-    initial_sidebar_state="expanded",
+    initial_sidebar_state="expanded" if _authenticated else "collapsed",
 )
 
 from backend.auth import require_auth, sign_out, get_role, render_role_badge
 from backend.page_manager import check_maintenance, is_page_visible
 require_auth()
 check_maintenance()
+
+# Assign role immediately after auth so it's available everywhere below
+_role = get_role()
 
 from components.reminder_banner import render_reminder_banner
 from components.metric_card import section_header
@@ -228,7 +234,6 @@ _ALL_NAV = [
     ("📅", "Calendar",        "pages/5_📅_Calendar.py",        "calendar",  "All reminders, events & school calendars"),
     ("📊", "Account Tracker", "pages/6_📊_Account_Tracker.py", "accounts",  "Equities, home, auto & expenses dashboard"),
 ]
-_role = get_role()
 NAV = [
     (icon, title, page, desc)
     for icon, title, page, pkey, desc in _ALL_NAV

@@ -7,7 +7,9 @@ import pandas as pd
 import plotly.express as px
 from datetime import date
 
-st.set_page_config(page_title="AiPi360 · CC & Points", page_icon="💳", layout="wide")
+_authenticated = st.session_state.get("authenticated", False)
+st.set_page_config(page_title="AiPi360 · CC & Points", page_icon="💳", layout="wide",
+    initial_sidebar_state="expanded" if _authenticated else "collapsed")
 
 from backend.auth import require_auth, sign_out
 from backend.page_manager import check_maintenance, check_page_access

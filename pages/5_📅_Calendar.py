@@ -6,7 +6,9 @@ import streamlit as st
 import pandas as pd
 from datetime import date, timedelta
 
-st.set_page_config(page_title="AiPi360 · Calendar", page_icon="📅", layout="wide")
+_authenticated = st.session_state.get("authenticated", False)
+st.set_page_config(page_title="AiPi360 · Calendar", page_icon="📅", layout="wide",
+    initial_sidebar_state="expanded" if _authenticated else "collapsed")
 
 from backend.auth import require_auth, sign_out
 from backend.page_manager import check_maintenance, check_page_access

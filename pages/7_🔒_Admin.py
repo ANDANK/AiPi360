@@ -4,7 +4,9 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
 import streamlit as st
 
-st.set_page_config(page_title="AiPi360 · Admin", page_icon="🔒", layout="wide")
+_authenticated = st.session_state.get("authenticated", False)
+st.set_page_config(page_title="AiPi360 · Admin", page_icon="🔒", layout="wide",
+    initial_sidebar_state="expanded" if _authenticated else "collapsed")
 
 from backend.auth import require_admin, sign_out, render_role_badge
 from components.styles import inject_3d_tab_css
