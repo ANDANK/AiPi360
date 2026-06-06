@@ -99,7 +99,60 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-# ── Reminders Banner ──────────────────────────────────────────────────────────
+# ── Role-split: users get a clean static home; admin gets full dashboard ──────
+if _role != "admin":
+    # ── User: clean nav-only home page ────────────────────────────────────────
+    st.markdown("#### 🗂️ Your Sections")
+    _ALL_NAV_USER = [
+        ("🧒", "Kids",            "pages/1_🧒_Kids.py",            "kids",         "School, activities & planning"),
+        ("🛡️", "Insurance",       "pages/2_🛡️_Insurance.py",       "insurance",    "Policies, premiums & renewals"),
+        ("💳", "CC & Points",     "pages/3_💳_CC_Points.py",       "cc_points",    "Maximize rewards & offers"),
+        ("✈️", "Travel",          "pages/4_✈️_Travel.py",          "travel",       "Best deals on flights & hotels"),
+        ("📅", "Calendar",        "pages/5_📅_Calendar.py",        "calendar",     "Events, reminders & school"),
+        ("📊", "Account Tracker", "pages/6_📊_Account_Tracker.py", "accounts",     "Balances & expenses"),
+        ("💼", "Portfolio",       "pages/8_💼_Portfolio.py",       "portfolio",    "Investments & trading"),
+        ("🗺️", "Destinations",    "pages/9_🗺️_Destinations.py",   "destinations", "Family trip planning"),
+    ]
+    USER_NAV = [
+        (icon, title, page, desc)
+        for icon, title, page, pkey, desc in _ALL_NAV_USER
+        if is_page_visible(pkey)
+    ]
+    cols_per_row = 3
+    rows = [USER_NAV[i:i+cols_per_row] for i in range(0, len(USER_NAV), cols_per_row)]
+    for row_items in rows:
+        row_cols = st.columns(cols_per_row)
+        for col, (icon, title, page, desc) in zip(row_cols, row_items):
+            with col:
+                st.markdown(
+                    f"""<div class="nav-card">
+                      <div class="nav-icon">{icon}</div>
+                      <div class="nav-title">{title}</div>
+                      <div class="nav-desc">{desc}</div>
+                    </div>""",
+                    unsafe_allow_html=True,
+                )
+                st.page_link(page, label=f"Open {title} →", use_container_width=True)
+
+    st.markdown("---")
+    # Reminders only
+    try:
+        from backend.gsheet import read_sheet as _rs2
+        rem_df2 = _rs2("reminders")
+        if not rem_df2.empty:
+            render_reminder_banner(rem_df2)
+    except Exception:
+        pass
+
+    st.markdown(
+        "<div style='text-align:center;font-size:12px;color:#94a3b8;padding:8px 0;'>"
+        "AiPi360 · Family Command Center · Powered by Streamlit + Claude AI"
+        "</div>",
+        unsafe_allow_html=True,
+    )
+    st.stop()
+
+# ── Admin: full dashboard below ───────────────────────────────────────────────
 try:
     from services.reminders import get_active
     from backend.gsheet import read_sheet
@@ -107,17 +160,11 @@ try:
     if not reminders_df.empty:
         render_reminder_banner(reminders_df)
 except Exception:
-    pass  # No reminders yet — first run
+    pass
 
 # ── Quick Stats Row ───────────────────────────────────────────────────────────
 st.markdown("#### 📊 Quick Snapshot")
 k1, k2, k3, k4, k5 = st.columns(5)
-
-def _safe_stat(fn):
-    try:
-        return fn()
-    except Exception:
-        return None
 
 with k1:
     from backend.gsheet import read_sheet as _rs
@@ -162,7 +209,7 @@ with k5:
 
 st.markdown("---")
 
-# ── Navigation Cards ──────────────────────────────────────────────────────────
+# ── Navigation Cards (admin) ───────────────────────────────────────────────────
 st.markdown("#### 🗂️ Sections")
 
 _ALL_NAV = [

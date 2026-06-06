@@ -40,6 +40,7 @@ PAGES = [
     {"key": "travel",    "label": "✈️ Travel",          "kid_required": False},
     {"key": "calendar",  "label": "📅 Calendar",        "kid_required": False},
     {"key": "accounts",      "label": "📊 Account Tracker", "kid_required": False},
+    {"key": "portfolio",     "label": "💼 Portfolio",       "kid_required": False},
     {"key": "destinations",  "label": "🗺️ Destinations",   "kid_required": False},
 ]
 
