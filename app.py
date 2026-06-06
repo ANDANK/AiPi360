@@ -36,6 +36,14 @@ html, body, [class*="css"] { font-family: 'Inter', sans-serif !important; }
     font-size: 18px; font-weight: 800; color: #0f172a;
     padding: 20px 16px 8px 16px; letter-spacing: -0.03em;
 }
+/* Rename "app" nav item to "AiPi360" */
+[data-testid="stSidebarNav"] li:first-child a p {
+    font-size: 0 !important;
+}
+[data-testid="stSidebarNav"] li:first-child a p::after {
+    content: "AiPi360";
+    font-size: 14px;
+}
 
 /* Nav card hover */
 .nav-section:hover { box-shadow: 0 4px 16px rgba(37,99,235,0.12) !important; }
