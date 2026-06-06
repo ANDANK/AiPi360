@@ -9,9 +9,10 @@ st.set_page_config(page_title="AiPi360 · Admin", page_icon="🔒", layout="wide
     initial_sidebar_state="expanded" if _authenticated else "collapsed")
 
 from backend.auth import require_admin, sign_out, render_role_badge
-from components.styles import inject_3d_tab_css
+from components.styles import inject_3d_tab_css, inject_global_nav_css
 require_admin()   # redirects non-admin to home
 inject_3d_tab_css()
+inject_global_nav_css()
 
 from backend.page_manager import (
     PAGES, PAGE_FEATURES,

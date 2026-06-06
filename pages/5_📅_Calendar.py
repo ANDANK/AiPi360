@@ -12,11 +12,12 @@ st.set_page_config(page_title="AiPi360 · Calendar", page_icon="📅", layout="w
 
 from backend.auth import require_auth, sign_out
 from backend.page_manager import check_maintenance, check_page_access
-from components.styles import inject_3d_tab_css
+from components.styles import inject_3d_tab_css, inject_global_nav_css
 require_auth()
 check_maintenance()
 check_page_access("calendar")
 inject_3d_tab_css()
+inject_global_nav_css()
 
 from components.metric_card import section_header
 from services.reminders import get_all, add, mark_done, delete

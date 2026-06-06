@@ -16,11 +16,12 @@ st.set_page_config(page_title="AiPi360 · Account Tracker", page_icon="📊", la
 
 from backend.auth import require_auth, sign_out
 from backend.page_manager import check_maintenance, check_page_access
-from components.styles import inject_3d_tab_css
+from components.styles import inject_3d_tab_css, inject_global_nav_css
 require_auth()
 check_maintenance()
 check_page_access("accounts")
 inject_3d_tab_css()
+inject_global_nav_css()
 
 from components.reminder_banner import render_section_reminders
 from services.accounts import (

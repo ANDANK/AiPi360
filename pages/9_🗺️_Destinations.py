@@ -11,10 +11,11 @@ st.set_page_config(page_title="AiPi360 · Destinations", page_icon="🗺️", la
 
 from backend.auth import require_auth, sign_out
 from backend.page_manager import check_maintenance
-from components.styles import inject_3d_tab_css
+from components.styles import inject_3d_tab_css, inject_global_nav_css
 require_auth()
 check_maintenance()
 inject_3d_tab_css()
+inject_global_nav_css()
 
 from components.metric_card import section_header
 
@@ -63,8 +64,6 @@ html, body, [class*="css"] { font-family: 'Inter', sans-serif !important; }
 with st.sidebar:
     st.markdown("---")
     if st.button("🚪 Sign Out", use_container_width=True): sign_out()
-    st.page_link("app.py", label="🏠 Home", use_container_width=True)
-    st.page_link("pages/4_✈️_Travel.py", label="✈️ Points & Deals", use_container_width=True)
 
 section_header("🗺️", "Destinations", "Multi-year trip planning vault for the family")
 

@@ -20,12 +20,13 @@ st.set_page_config(page_title="AiPi360 · Portfolio", page_icon="💼", layout="
 
 from backend.auth import require_auth, sign_out
 from backend.page_manager import check_maintenance, check_page_access
-from components.styles import inject_3d_tab_css
+from components.styles import inject_3d_tab_css, inject_global_nav_css
 
 require_auth()
 check_maintenance()
 check_page_access("portfolio")
 inject_3d_tab_css()
+inject_global_nav_css()
 
 from services.tos_parser import (
     compute_realized_pnl,

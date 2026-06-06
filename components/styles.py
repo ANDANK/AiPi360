@@ -42,6 +42,20 @@ button[aria-selected="true"][data-baseweb="tab"] {
 """
 
 
+_GLOBAL_NAV_CSS = """
+<style>
+/* Rename "app" sidebar nav item to "AiPi360" on every page */
+[data-testid="stSidebarNav"] li:first-child a p { font-size: 0 !important; }
+[data-testid="stSidebarNav"] li:first-child a p::after { content: "AiPi360"; font-size: 14px; }
+</style>
+"""
+
+
 def inject_3d_tab_css() -> None:
     """Inject 3D-raised tab styling site-wide."""
     st.markdown(_3D_TAB_CSS, unsafe_allow_html=True)
+
+
+def inject_global_nav_css() -> None:
+    """Inject global nav fixes (home page rename) on every page."""
+    st.markdown(_GLOBAL_NAV_CSS, unsafe_allow_html=True)
