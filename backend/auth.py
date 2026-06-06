@@ -44,7 +44,7 @@ _LOGIN_CSS = """
 _ROLE_CSS = {
     # Admin: hide nothing — sees all pages
     "admin": "",
-    # User: hide admin page link from sidebar
+    # User: always hide Admin page; disabled pages hidden dynamically below
     "user": """
 <style>
 [data-testid="stSidebarNav"] ul li:has(a[href*="Admin"]) { display: none !important; }
@@ -58,6 +58,18 @@ _ROLE_CSS = {
 [data-testid="stSidebarNav"] ul li:has(a[href*="Kids"]) { display: flex !important; }
 </style>
 """,
+}
+
+# Maps page_key → the href fragment Streamlit uses in the sidebar nav
+_PAGE_HREF = {
+    "kids":         "Kids",
+    "insurance":    "Insurance",
+    "cc_points":    "CC_Points",
+    "travel":       "Travel",
+    "calendar":     "Calendar",
+    "accounts":     "Account_Tracker",
+    "portfolio":    "Portfolio",
+    "destinations": "Destinations",
 }
 
 ROLE_LABELS = {
@@ -75,9 +87,27 @@ def get_role() -> str:
 
 
 def _inject_role_css() -> None:
-    css = _ROLE_CSS.get(get_role(), "")
+    role = get_role()
+    css = _ROLE_CSS.get(role, "")
     if css:
         st.markdown(css, unsafe_allow_html=True)
+
+    # For user role: hide sidebar links for pages disabled in AppSettings
+    if role == "user":
+        try:
+            from backend.page_manager import PAGES, is_page_visible
+            selectors = [
+                f'[data-testid="stSidebarNav"] ul li:has(a[href*="{_PAGE_HREF[p["key"]]}"])'
+                for p in PAGES
+                if p["key"] in _PAGE_HREF and not is_page_visible(p["key"])
+            ]
+            if selectors:
+                st.markdown(
+                    f"<style>{', '.join(selectors)} {{ display: none !important; }}</style>",
+                    unsafe_allow_html=True,
+                )
+        except Exception:
+            pass
 
 
 # ── Role badge in sidebar ─────────────────────────────────────────────────────
