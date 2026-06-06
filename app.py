@@ -143,19 +143,9 @@ if _role != "admin":
                 )
                 st.page_link(page, label=f"Open {title} →", use_container_width=True)
 
-    st.markdown("---")
-    # Reminders only
-    try:
-        from backend.gsheet import read_sheet as _rs2
-        rem_df2 = _rs2("reminders")
-        if not rem_df2.empty:
-            render_reminder_banner(rem_df2)
-    except Exception:
-        pass
-
     st.markdown(
-        "<div style='text-align:center;font-size:12px;color:#94a3b8;padding:8px 0;'>"
-        "AiPi360 · Family Command Center · Powered by Streamlit + Claude AI"
+        "<div style='text-align:center;font-size:12px;color:#94a3b8;padding:16px 0;'>"
+        "AiPi360 · Family Command Center"
         "</div>",
         unsafe_allow_html=True,
     )
