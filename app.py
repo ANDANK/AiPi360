@@ -110,27 +110,16 @@ st.markdown(
 
 # ── Role-split: users get a clean static home; admin gets full dashboard ──────
 if _role != "admin":
-    # ── User: clean nav-only home page ────────────────────────────────────────
+    # ── User: hardcoded nav — only show explicitly granted sections ────────────
+    # Mirrors the sidebar hardcoding in auth.py. Add tuples here to grant pages.
     st.markdown("#### 🗂️ Your Sections")
-    _ALL_NAV_USER = [
-        ("🧒", "Kids",            "pages/1_🧒_Kids.py",            "kids",         "School, activities & planning"),
-        ("🛡️", "Insurance",       "pages/2_🛡️_Insurance.py",       "insurance",    "Policies, premiums & renewals"),
-        ("💳", "CC & Points",     "pages/3_💳_CC_Points.py",       "cc_points",    "Maximize rewards & offers"),
-        ("✈️", "Travel",          "pages/4_✈️_Travel.py",          "travel",       "Best deals on flights & hotels"),
-        ("📅", "Calendar",        "pages/5_📅_Calendar.py",        "calendar",     "Events, reminders & school"),
-        ("📊", "Account Tracker", "pages/6_📊_Account_Tracker.py", "accounts",     "Balances & expenses"),
-        ("💼", "Portfolio",       "pages/8_💼_Portfolio.py",       "portfolio",    "Investments & trading"),
-        ("🗺️", "Destinations",    "pages/9_🗺️_Destinations.py",   "destinations", "Family trip planning"),
-    ]
     USER_NAV = [
-        (icon, title, page, desc)
-        for icon, title, page, pkey, desc in _ALL_NAV_USER
-        if is_page_visible(pkey)
+        ("🗺️", "Destinations", "pages/9_🗺️_Destinations.py", "Family trip planning"),
     ]
     cols_per_row = 3
     rows = [USER_NAV[i:i+cols_per_row] for i in range(0, len(USER_NAV), cols_per_row)]
     for row_items in rows:
-        row_cols = st.columns(cols_per_row)
+        row_cols = st.columns(min(cols_per_row, len(row_items)))
         for col, (icon, title, page, desc) in zip(row_cols, row_items):
             with col:
                 st.markdown(

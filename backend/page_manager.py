@@ -228,11 +228,17 @@ def check_maintenance() -> None:
         st.stop()
 
 
+# Pages the "user" role is allowed to access (hardcoded — mirrors auth.py sidebar)
+_USER_ALLOWED_PAGES = {"destinations"}   # ← add page_keys here to grant access
+
+
 def check_page_access(page_key: str) -> None:
     """Block access if role doesn't have permission to view this page."""
     role = st.session_state.get("role", "user")
     if role == "admin":
         return
+
+    # Kid: only kids page
     if role == "kid" and page_key != "kids":
         st.markdown(
             '<div style="max-width:500px;margin:80px auto;text-align:center;'
@@ -240,13 +246,24 @@ def check_page_access(page_key: str) -> None:
             '<div style="font-size:48px;margin-bottom:12px">🧒</div>'
             '<div style="font-size:20px;font-weight:800;color:#166534;margin-bottom:8px">'
             'Kids Mode Active</div>'
-            '<div style="font-size:14px;color:#15803d">This page is not part of Kids mode.</div>'
+            '<div style="font-size:14px;color:#15803d">This page is not available in Kids mode.</div>'
             '</div>',
             unsafe_allow_html=True,
         )
         st.page_link("app.py", label="← Back to Home")
         st.stop()
-    if not is_page_visible(page_key):
-        st.warning("🔒 This page has been disabled by the administrator.")
+
+    # User: only hardcoded allowed pages
+    if role == "user" and page_key not in _USER_ALLOWED_PAGES:
+        st.markdown(
+            '<div style="max-width:500px;margin:80px auto;text-align:center;'
+            'background:#f1f5f9;border:2px solid #cbd5e1;border-radius:16px;padding:40px;">'
+            '<div style="font-size:48px;margin-bottom:12px">🔒</div>'
+            '<div style="font-size:20px;font-weight:800;color:#0f172a;margin-bottom:8px">'
+            'Access Restricted</div>'
+            '<div style="font-size:14px;color:#475569">You do not have access to this page.</div>'
+            '</div>',
+            unsafe_allow_html=True,
+        )
         st.page_link("app.py", label="← Back to Home")
         st.stop()

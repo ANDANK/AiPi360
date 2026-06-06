@@ -95,20 +95,16 @@ def _inject_role_css() -> None:
 </style>""", unsafe_allow_html=True)
         return
 
-    # User role — Step 2: explicitly show only permitted pages
-    # Always show Home (first item)
-    show_selectors = ["[data-testid='stSidebarNav'] ul li:first-child"]
-    try:
-        from backend.page_manager import PAGES, is_page_visible
-        for p in PAGES:
-            href = _PAGE_HREF.get(p["key"])
-            if href and is_page_visible(p["key"]):
-                show_selectors.append(
-                    f'[data-testid="stSidebarNav"] ul li:has(a[href*="{href}"])'
-                )
-    except Exception:
-        pass
-
+    # User role — hardcoded allowed pages (safe default; expand when needed)
+    # Pattern mirrors kid role. Change _USER_ALLOWED_HREFS to grant more pages.
+    _USER_ALLOWED_HREFS = ["Destinations"]   # ← add hrefs here to grant access
+    show_selectors = (
+        ["[data-testid='stSidebarNav'] ul li:first-child"]  # always show Home
+        + [
+            f'[data-testid="stSidebarNav"] ul li:has(a[href*="{href}"])'
+            for href in _USER_ALLOWED_HREFS
+        ]
+    )
     st.markdown(
         f"<style>{', '.join(show_selectors)} {{ display: flex !important; }}</style>",
         unsafe_allow_html=True,
