@@ -41,24 +41,11 @@ _LOGIN_CSS = """
 </style>
 """
 
-_ROLE_CSS = {
-    # Admin: hide nothing — sees all pages
-    "admin": "",
-    # User: always hide Admin page; disabled pages hidden dynamically below
-    "user": """
-<style>
-[data-testid="stSidebarNav"] ul li:has(a[href*="Admin"]) { display: none !important; }
-</style>
-""",
-    # Kid: show only Home + Kids in sidebar
-    "kid": """
-<style>
-[data-testid="stSidebarNav"] ul li { display: none !important; }
-[data-testid="stSidebarNav"] ul li:first-child,
-[data-testid="stSidebarNav"] ul li:has(a[href*="Kids"]) { display: flex !important; }
-</style>
-""",
-}
+# Base: hide ALL nav items immediately — prevents any flash of restricted pages.
+# Role CSS then explicitly shows only what is permitted.
+_NAV_HIDE_ALL = (
+    "<style>[data-testid='stSidebarNav'] ul li{display:none!important}</style>"
+)
 
 # Maps page_key → the href fragment Streamlit uses in the sidebar nav
 _PAGE_HREF = {
@@ -88,26 +75,44 @@ def get_role() -> str:
 
 def _inject_role_css() -> None:
     role = get_role()
-    css = _ROLE_CSS.get(role, "")
-    if css:
-        st.markdown(css, unsafe_allow_html=True)
 
-    # For user role: hide sidebar links for pages disabled in AppSettings
-    if role == "user":
-        try:
-            from backend.page_manager import PAGES, is_page_visible
-            selectors = [
-                f'[data-testid="stSidebarNav"] ul li:has(a[href*="{_PAGE_HREF[p["key"]]}"])'
-                for p in PAGES
-                if p["key"] in _PAGE_HREF and not is_page_visible(p["key"])
-            ]
-            if selectors:
-                st.markdown(
-                    f"<style>{', '.join(selectors)} {{ display: none !important; }}</style>",
-                    unsafe_allow_html=True,
+    # Step 1 — hide ALL nav items (applied atomically with step 2, prevents flash)
+    st.markdown(_NAV_HIDE_ALL, unsafe_allow_html=True)
+
+    if role == "admin":
+        # Admin sees everything — un-hide all items
+        st.markdown(
+            "<style>[data-testid='stSidebarNav'] ul li{display:flex!important}</style>",
+            unsafe_allow_html=True,
+        )
+        return
+
+    if role == "kid":
+        # Kid sees only Home + Kids
+        st.markdown("""<style>
+[data-testid="stSidebarNav"] ul li:first-child,
+[data-testid="stSidebarNav"] ul li:has(a[href*="Kids"]) { display: flex !important; }
+</style>""", unsafe_allow_html=True)
+        return
+
+    # User role — Step 2: explicitly show only permitted pages
+    # Always show Home (first item)
+    show_selectors = ["[data-testid='stSidebarNav'] ul li:first-child"]
+    try:
+        from backend.page_manager import PAGES, is_page_visible
+        for p in PAGES:
+            href = _PAGE_HREF.get(p["key"])
+            if href and is_page_visible(p["key"]):
+                show_selectors.append(
+                    f'[data-testid="stSidebarNav"] ul li:has(a[href*="{href}"])'
                 )
-        except Exception:
-            pass
+    except Exception:
+        pass
+
+    st.markdown(
+        f"<style>{', '.join(show_selectors)} {{ display: flex !important; }}</style>",
+        unsafe_allow_html=True,
+    )
 
 
 # ── Role badge in sidebar ─────────────────────────────────────────────────────
