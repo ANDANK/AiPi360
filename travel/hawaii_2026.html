@@ -1,0 +1,1132 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Hawaii 2026 — Family Vacation Planner</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Inter',sans-serif;background:#f8fafc;color:#0f172a;display:flex;min-height:100vh}
+
+/* SIDEBAR */
+#sidebar{width:220px;min-height:100vh;background:#0c1a3a;position:fixed;top:0;left:0;z-index:100;overflow-y:auto;padding-bottom:40px}
+#sidebar .logo{padding:20px 16px 12px;border-bottom:1px solid rgba(255,255,255,0.08)}
+#sidebar .logo h2{color:#fff;font-size:14px;font-weight:800;letter-spacing:-0.02em}
+#sidebar .logo p{color:#7dd3fc;font-size:11px;margin-top:2px}
+#sidebar nav a{display:flex;align-items:center;gap:10px;padding:9px 16px;color:#94a3b8;font-size:12px;font-weight:500;text-decoration:none;transition:all .15s;border-left:3px solid transparent}
+#sidebar nav a:hover,#sidebar nav a.active{background:rgba(255,255,255,0.07);color:#fff;border-left-color:#38bdf8}
+#sidebar nav .nav-group{padding:16px 16px 4px;font-size:10px;font-weight:700;color:#475569;letter-spacing:.1em;text-transform:uppercase}
+
+/* MAIN */
+#main{margin-left:220px;flex:1;padding:28px 32px}
+
+/* CARDS */
+.card{background:#fff;border-radius:14px;padding:20px;border:1px solid #e2e8f0;margin-bottom:20px;box-shadow:0 1px 4px rgba(0,0,0,.05)}
+.card h3{font-size:15px;font-weight:700;color:#0f172a;margin-bottom:14px;display:flex;align-items:center;gap:8px}
+.section{display:none}.section.active{display:block}
+.hero{background:linear-gradient(135deg,#0369a1,#0891b2,#06b6d4);border-radius:16px;padding:32px;color:#fff;margin-bottom:24px;position:relative;overflow:hidden}
+.hero::after{content:'🌺';position:absolute;right:32px;top:50%;transform:translateY(-50%);font-size:80px;opacity:.3}
+.hero h1{font-size:28px;font-weight:800;letter-spacing:-.03em;margin-bottom:6px}
+.hero p{font-size:14px;opacity:.85}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.grid3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px}
+.grid4{display:grid;grid-template-columns:repeat(4,1fr);gap:14px}
+.kpi{background:#fff;border-radius:12px;padding:16px;border:1px solid #e2e8f0;text-align:center}
+.kpi .num{font-size:26px;font-weight:800;color:#0369a1}
+.kpi .lbl{font-size:11px;color:#64748b;margin-top:2px;text-transform:uppercase;letter-spacing:.06em}
+.badge{display:inline-block;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:700}
+.badge-blue{background:#dbeafe;color:#1d4ed8}
+.badge-green{background:#dcfce7;color:#166534}
+.badge-amber{background:#fef9c3;color:#92400e}
+.badge-red{background:#fee2e2;color:#b91c1c}
+.badge-purple{background:#f3e8ff;color:#7c3aed}
+.badge-cyan{background:#cffafe;color:#0e7490}
+.warn-card{background:#fff7ed;border:1px solid #fed7aa;border-left:4px solid #ea580c;border-radius:10px;padding:14px 16px;margin-bottom:10px}
+.warn-card h4{color:#c2410c;font-size:13px;font-weight:700;margin-bottom:4px}
+.warn-card p{font-size:12px;color:#7c2d12}
+.do-card{background:#f0fdf4;border:1px solid #bbf7d0;border-left:4px solid #16a34a;border-radius:10px;padding:14px 16px;margin-bottom:10px}
+.do-card h4{color:#15803d;font-size:13px;font-weight:700;margin-bottom:4px}
+.do-card p{font-size:12px;color:#14532d}
+table{width:100%;border-collapse:collapse;font-size:12px}
+th{background:#f1f5f9;padding:8px 10px;text-align:left;font-weight:700;color:#374151;border-bottom:2px solid #e2e8f0}
+td{padding:8px 10px;border-bottom:1px solid #f1f5f9;color:#374151}
+tr:hover td{background:#f8fafc}
+.star{color:#f59e0b}
+.tab-bar{display:flex;gap:8px;margin-bottom:20px;flex-wrap:wrap}
+.tab-btn{padding:7px 16px;border-radius:8px;border:1px solid #e2e8f0;background:#fff;font-size:12px;font-weight:600;cursor:pointer;color:#475569;transition:all .15s}
+.tab-btn.active{background:#0369a1;color:#fff;border-color:#0369a1}
+.itin-day{background:#fff;border-radius:10px;border:1px solid #e2e8f0;margin-bottom:10px;overflow:hidden}
+.itin-day-head{background:#0369a1;color:#fff;padding:10px 16px;font-size:13px;font-weight:700}
+.itin-slot{display:flex;gap:12px;padding:10px 16px;border-bottom:1px solid #f1f5f9;font-size:12px}
+.itin-slot:last-child{border-bottom:none}
+.itin-time{width:70px;font-weight:700;color:#0369a1;flex-shrink:0}
+.score-bar{height:8px;border-radius:4px;background:#e2e8f0;margin-top:4px;overflow:hidden}
+.score-fill{height:100%;border-radius:4px;background:linear-gradient(90deg,#0891b2,#06b6d4)}
+.island-card{background:#fff;border-radius:12px;border:1px solid #e2e8f0;overflow:hidden}
+.island-hero{height:80px;display:flex;align-items:center;justify-content:center;font-size:36px}
+.island-body{padding:14px}
+.island-name{font-size:15px;font-weight:800;color:#0f172a}
+.island-tag{font-size:11px;color:#64748b;margin-bottom:10px}
+.countdown{background:linear-gradient(135deg,#7c3aed,#6d28d9);border-radius:14px;padding:24px;color:#fff;text-align:center;margin-bottom:20px}
+.countdown .units{display:flex;justify-content:center;gap:24px;margin-top:12px}
+.countdown .unit .n{font-size:36px;font-weight:800}
+.countdown .unit .l{font-size:11px;opacity:.7;text-transform:uppercase;letter-spacing:.08em}
+h2.sec-title{font-size:20px;font-weight:800;color:#0f172a;margin-bottom:18px;display:flex;align-items:center;gap:8px}
+.rec-winner{background:linear-gradient(135deg,#f0fdf4,#dcfce7);border:2px solid #16a34a;border-radius:12px;padding:16px;display:flex;align-items:center;gap:14px;margin-bottom:10px}
+.rec-winner .trophy{font-size:28px}
+.rec-winner .title{font-size:11px;font-weight:700;color:#15803d;text-transform:uppercase;letter-spacing:.06em}
+.rec-winner .val{font-size:15px;font-weight:800;color:#0f172a}
+.rec-winner .sub{font-size:11px;color:#64748b;margin-top:2px}
+ul.checklist{list-style:none;padding:0}
+ul.checklist li{padding:5px 0;font-size:12px;color:#374151;display:flex;align-items:flex-start;gap:8px}
+ul.checklist li::before{content:'✓';color:#16a34a;font-weight:700;flex-shrink:0}
+.food-card{background:#fff;border-radius:10px;border:1px solid #e2e8f0;padding:14px;margin-bottom:10px}
+.food-card h4{font-size:13px;font-weight:700;color:#0f172a;margin-bottom:4px}
+.food-card p{font-size:11px;color:#64748b}
+.nature-item{display:flex;align-items:flex-start;gap:12px;padding:12px 0;border-bottom:1px solid #f1f5f9}
+.nature-item:last-child{border-bottom:none}
+.nature-num{width:28px;height:28px;background:#0891b2;color:#fff;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;flex-shrink:0}
+.pack-section{margin-bottom:16px}
+.pack-section h4{font-size:13px;font-weight:700;color:#0369a1;margin-bottom:8px}
+.pack-items{display:flex;flex-wrap:wrap;gap:6px}
+.pack-item{background:#f1f5f9;border-radius:6px;padding:4px 10px;font-size:11px;color:#374151}
+</style>
+</head>
+<body>
+
+<!-- SIDEBAR -->
+<div id="sidebar">
+  <div class="logo">
+    <h2>🌺 Hawaii 2026</h2>
+    <p>Family Vacation Planner</p>
+  </div>
+  <nav>
+    <div class="nav-group">Overview</div>
+    <a href="#" class="active" onclick="show('dashboard',this)"><i class="fa fa-gauge-high"></i> Dashboard</a>
+    <a href="#" onclick="show('islands',this)"><i class="fa fa-map"></i> Island Guide</a>
+    <div class="nav-group">Planning</div>
+    <a href="#" onclick="show('booking',this)"><i class="fa fa-tag"></i> Deals & Booking</a>
+    <a href="#" onclick="show('mustvisit',this)"><i class="fa fa-star"></i> Must-Visit Places</a>
+    <a href="#" onclick="show('itinerary',this)"><i class="fa fa-calendar-days"></i> Itinerary</a>
+    <a href="#" onclick="show('group',this)"><i class="fa fa-users"></i> Group Planning</a>
+    <div class="nav-group">Experiences</div>
+    <a href="#" onclick="show('nature',this)"><i class="fa fa-leaf"></i> Nature Lovers</a>
+    <a href="#" onclick="show('food',this)"><i class="fa fa-utensils"></i> Food & Drink</a>
+    <a href="#" onclick="show('kids',this)"><i class="fa fa-child"></i> Kids Corner</a>
+    <div class="nav-group">Know Before You Go</div>
+    <a href="#" onclick="show('donts',this)"><i class="fa fa-triangle-exclamation"></i> Do's & Don'ts</a>
+    <a href="#" onclick="show('culture',this)"><i class="fa fa-landmark"></i> Culture & History</a>
+    <a href="#" onclick="show('weather',this)"><i class="fa fa-cloud-sun"></i> Weather</a>
+    <a href="#" onclick="show('packing',this)"><i class="fa fa-bag-shopping"></i> Packing Guide</a>
+    <div class="nav-group">Summary</div>
+    <a href="#" onclick="show('reco',this)"><i class="fa fa-trophy"></i> Recommendations</a>
+  </nav>
+</div>
+
+<!-- MAIN -->
+<div id="main">
+
+<!-- ═══════════════════════════════════════════════ DASHBOARD -->
+<div id="dashboard" class="section active">
+  <div class="hero">
+    <h1>🌺 Hawaii 2026 — Family Vacation</h1>
+    <p>December 2026 &nbsp;·&nbsp; 7–8 Families &nbsp;·&nbsp; 15–18 Travelers &nbsp;·&nbsp; The Ultimate Group Trip</p>
+  </div>
+
+  <div id="countdown" class="countdown">
+    <div style="font-size:13px;opacity:.8;margin-bottom:4px">COUNTDOWN TO HAWAII</div>
+    <div class="units">
+      <div class="unit"><div class="n" id="cd-days">--</div><div class="l">Days</div></div>
+      <div class="unit"><div class="n" id="cd-hrs">--</div><div class="l">Hours</div></div>
+      <div class="unit"><div class="n" id="cd-min">--</div><div class="l">Minutes</div></div>
+    </div>
+    <div style="font-size:12px;opacity:.7;margin-top:10px">Target: December 20, 2026</div>
+  </div>
+
+  <div class="grid4" style="margin-bottom:20px">
+    <div class="kpi"><div class="num">15–18</div><div class="lbl">Travelers</div></div>
+    <div class="kpi"><div class="num">7–8</div><div class="lbl">Families</div></div>
+    <div class="kpi"><div class="num">10–12</div><div class="lbl">Best Days</div></div>
+    <div class="kpi"><div class="num">2–3</div><div class="lbl">Islands</div></div>
+  </div>
+
+  <div class="grid2">
+    <div class="card">
+      <h3>🌡️ December Weather</h3>
+      <table>
+        <tr><th>Metric</th><th>Maui</th><th>Kauai</th><th>Big Island</th></tr>
+        <tr><td>Avg High</td><td>81°F</td><td>78°F</td><td>80°F</td></tr>
+        <tr><td>Avg Low</td><td>68°F</td><td>65°F</td><td>66°F</td></tr>
+        <tr><td>Rain Days</td><td>8/mo</td><td>14/mo</td><td>6/mo</td></tr>
+        <tr><td>Ocean Temp</td><td>76°F</td><td>74°F</td><td>75°F</td></tr>
+        <tr><td>Sunrise</td><td>6:57am</td><td>6:59am</td><td>6:57am</td></tr>
+        <tr><td>Sunset</td><td>5:58pm</td><td>5:59pm</td><td>5:57pm</td></tr>
+      </table>
+    </div>
+    <div class="card">
+      <h3>💰 Estimated Budget Levels</h3>
+      <table>
+        <tr><th>Tier</th><th>Per Person</th><th>Family of 4</th><th>Notes</th></tr>
+        <tr><td><span class="badge badge-green">Budget</span></td><td>$2,500</td><td>$10,000</td><td>Condos, self-catering</td></tr>
+        <tr><td><span class="badge badge-blue">Moderate</span></td><td>$4,000</td><td>$16,000</td><td>Mid hotels, mix dining</td></tr>
+        <tr><td><span class="badge badge-purple">Premium</span></td><td>$6,500</td><td>$26,000</td><td>Resorts, excursions</td></tr>
+        <tr><td><span class="badge badge-amber">Luxury</span></td><td>$10,000+</td><td>$40,000+</td><td>5-star, private tours</td></tr>
+      </table>
+      <div style="margin-top:12px;padding:10px;background:#eff6ff;border-radius:8px;font-size:12px;color:#1d4ed8">
+        <strong>Recommended for your group:</strong> Moderate–Premium ($4,000–$6,500/person). Group discounts can save 10–20%.
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h3>🏝️ Island Comparison</h3>
+    <div style="display:flex;gap:16px;overflow-x:auto;padding-bottom:8px">
+      <canvas id="radarChart" style="max-width:320px;max-height:280px"></canvas>
+      <div style="flex:1;min-width:320px">
+        <table>
+          <tr><th>Category</th><th>Oahu</th><th>Maui</th><th>Kauai</th><th>Big Island</th></tr>
+          <tr><td>👨‍👩‍👧 Families</td><td>⭐⭐⭐⭐⭐</td><td>⭐⭐⭐⭐⭐</td><td>⭐⭐⭐⭐</td><td>⭐⭐⭐⭐</td></tr>
+          <tr><td>🧒 Kids</td><td>⭐⭐⭐⭐⭐</td><td>⭐⭐⭐⭐</td><td>⭐⭐⭐</td><td>⭐⭐⭐⭐</td></tr>
+          <tr><td>🍽️ Food</td><td>⭐⭐⭐⭐⭐</td><td>⭐⭐⭐⭐⭐</td><td>⭐⭐⭐</td><td>⭐⭐⭐</td></tr>
+          <tr><td>🌿 Nature</td><td>⭐⭐⭐</td><td>⭐⭐⭐⭐</td><td>⭐⭐⭐⭐⭐</td><td>⭐⭐⭐⭐⭐</td></tr>
+          <tr><td>🏄 Adventure</td><td>⭐⭐⭐⭐</td><td>⭐⭐⭐⭐⭐</td><td>⭐⭐⭐⭐</td><td>⭐⭐⭐⭐⭐</td></tr>
+          <tr><td>🌃 Nightlife</td><td>⭐⭐⭐⭐⭐</td><td>⭐⭐⭐</td><td>⭐⭐</td><td>⭐⭐</td></tr>
+          <tr><td>📸 Scenery</td><td>⭐⭐⭐</td><td>⭐⭐⭐⭐⭐</td><td>⭐⭐⭐⭐⭐</td><td>⭐⭐⭐⭐⭐</td></tr>
+          <tr><td>💵 Value</td><td>⭐⭐⭐</td><td>⭐⭐⭐</td><td>⭐⭐⭐⭐</td><td>⭐⭐⭐⭐</td></tr>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <div class="grid4">
+    <div class="kpi" style="cursor:pointer;border:2px solid #bfdbfe" onclick="show('islands',document.querySelector('[onclick*=islands]'))">🏝️<br><span style="font-size:13px;font-weight:700">Island Guide</span></div>
+    <div class="kpi" style="cursor:pointer;border:2px solid #bbf7d0" onclick="show('booking',document.querySelector('[onclick*=booking]'))">💰<br><span style="font-size:13px;font-weight:700">Deals & Booking</span></div>
+    <div class="kpi" style="cursor:pointer;border:2px solid #fde68a" onclick="show('mustvisit',document.querySelector('[onclick*=mustvisit]'))">📍<br><span style="font-size:13px;font-weight:700">Must-Visit</span></div>
+    <div class="kpi" style="cursor:pointer;border:2px solid #f9a8d4" onclick="show('kids',document.querySelector('[onclick*=kids]'))">🎉<br><span style="font-size:13px;font-weight:700">Kids Corner</span></div>
+    <div class="kpi" style="cursor:pointer;border:2px solid #a5f3fc" onclick="show('nature',document.querySelector('[onclick*=nature]'))">🌿<br><span style="font-size:13px;font-weight:700">Nature</span></div>
+    <div class="kpi" style="cursor:pointer;border:2px solid #fed7aa" onclick="show('food',document.querySelector('[onclick*=food]'))">🍽️<br><span style="font-size:13px;font-weight:700">Food & Drink</span></div>
+    <div class="kpi" style="cursor:pointer;border:2px solid #c4b5fd" onclick="show('culture',document.querySelector('[onclick*=culture]'))">🎭<br><span style="font-size:13px;font-weight:700">Culture</span></div>
+    <div class="kpi" style="cursor:pointer;border:2px solid #fecaca" onclick="show('donts',document.querySelector('[onclick*=donts]'))">⚠️<br><span style="font-size:13px;font-weight:700">Do's & Don'ts</span></div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════ ISLANDS -->
+<div id="islands" class="section">
+  <h2 class="sec-title">🏝️ Island Planning Guide</h2>
+
+  <div class="tab-bar">
+    <button class="tab-btn active" onclick="showTab('sc-a',this)">Scenario A: 1 Island</button>
+    <button class="tab-btn" onclick="showTab('sc-b',this)">Scenario B: 2 Islands</button>
+    <button class="tab-btn" onclick="showTab('sc-c',this)">Scenario C: 3 Islands</button>
+  </div>
+
+  <!-- Scenario A -->
+  <div id="sc-a" class="tab-content">
+    <div class="card" style="border-top:4px solid #0891b2">
+      <h3>🥇 Best Single Island: <span style="color:#0891b2">MAUI</span></h3>
+      <div class="grid2">
+        <div>
+          <p style="font-size:13px;margin-bottom:12px;line-height:1.7">Maui wins for a large family group. It offers the widest range of beaches (Road to Hana, Kaanapali, Wailea), world-class snorkeling, whale watching in December, the Haleakala sunrise, and enough restaurants and resorts to accommodate 15–18 people comfortably.</p>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px">
+            <span class="badge badge-blue">Best Overall</span>
+            <span class="badge badge-green">Family Friendly</span>
+            <span class="badge badge-cyan">Whale Season Dec</span>
+            <span class="badge badge-purple">Scenic Beauty</span>
+          </div>
+          <table>
+            <tr><th>Detail</th><th>Info</th></tr>
+            <tr><td>Ideal Days</td><td><strong>7–10 days</strong></td></tr>
+            <tr><td>Best For</td><td>Families, first-timers, foodies, adventurers</td></tr>
+            <tr><td>Avoid If</td><td>You want real seclusion or volcano experiences</td></tr>
+            <tr><td>Budget/person</td><td>$3,500–$6,000 (7 days)</td></tr>
+          </table>
+        </div>
+        <div>
+          <h4 style="font-size:13px;font-weight:700;margin-bottom:10px;color:#0f172a">Sample 7-Day Maui Itinerary</h4>
+          <div style="font-size:12px">
+            <div style="padding:6px 0;border-bottom:1px solid #f1f5f9"><strong>Day 1:</strong> Arrive · Kaanapali Beach · sunset dinner</div>
+            <div style="padding:6px 0;border-bottom:1px solid #f1f5f9"><strong>Day 2:</strong> Haleakala sunrise · upcountry farms · Paia town</div>
+            <div style="padding:6px 0;border-bottom:1px solid #f1f5f9"><strong>Day 3:</strong> Road to Hana — waterfalls, black sand beach</div>
+            <div style="padding:6px 0;border-bottom:1px solid #f1f5f9"><strong>Day 4:</strong> Molokini snorkel · afternoon beach · luau</div>
+            <div style="padding:6px 0;border-bottom:1px solid #f1f5f9"><strong>Day 5:</strong> Whale watching cruise · West Maui drive</div>
+            <div style="padding:6px 0;border-bottom:1px solid #f1f5f9"><strong>Day 6:</strong> Lahaina town · zip-line · beach day</div>
+            <div style="padding:6px 0"><strong>Day 7:</strong> Wailea beach morning · depart</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Scenario B -->
+  <div id="sc-b" class="tab-content" style="display:none">
+    <div class="grid3">
+      <div class="card" style="border-top:4px solid #0891b2">
+        <h3>🥇 Option 1: Maui + Kauai</h3>
+        <span class="badge badge-blue" style="margin-bottom:10px;display:inline-block">Best Combination</span>
+        <table>
+          <tr><th>Detail</th><th></th></tr>
+          <tr><td>Days</td><td>5 Maui + 4 Kauai</td></tr>
+          <tr><td>Flight</td><td>~35 min inter-island</td></tr>
+          <tr><td>Best For</td><td>Beach + dramatic nature</td></tr>
+          <tr><td>Budget/person</td><td>$5,000–$8,000</td></tr>
+          <tr><td>Kids Rating</td><td>⭐⭐⭐⭐</td></tr>
+        </table>
+        <div style="margin-top:12px;font-size:12px;color:#374151">
+          <strong>Pros:</strong> Best scenery combo, Na Pali + Haleakala, whale watching<br>
+          <strong>Cons:</strong> Kauai has fewer restaurants for large groups
+        </div>
+      </div>
+      <div class="card" style="border-top:4px solid #7c3aed">
+        <h3>🥈 Option 2: Oahu + Maui</h3>
+        <span class="badge badge-purple" style="margin-bottom:10px;display:inline-block">Best for Families</span>
+        <table>
+          <tr><th>Detail</th><th></th></tr>
+          <tr><td>Days</td><td>4 Oahu + 5 Maui</td></tr>
+          <tr><td>Flight</td><td>~30 min inter-island</td></tr>
+          <tr><td>Best For</td><td>First-timers, city + beach</td></tr>
+          <tr><td>Budget/person</td><td>$4,500–$7,000</td></tr>
+          <tr><td>Kids Rating</td><td>⭐⭐⭐⭐⭐</td></tr>
+        </table>
+        <div style="margin-top:12px;font-size:12px;color:#374151">
+          <strong>Pros:</strong> Pearl Harbor, Waikiki, Diamond Head + Maui beaches<br>
+          <strong>Cons:</strong> Oahu is crowded in December (holiday peak)
+        </div>
+      </div>
+      <div class="card" style="border-top:4px solid #16a34a">
+        <h3>🥉 Option 3: Big Island + Maui</h3>
+        <span class="badge badge-green" style="margin-bottom:10px;display:inline-block">Best for Adventure</span>
+        <table>
+          <tr><th>Detail</th><th></th></tr>
+          <tr><td>Days</td><td>5 Big Island + 4 Maui</td></tr>
+          <tr><td>Flight</td><td>~40 min inter-island</td></tr>
+          <tr><td>Best For</td><td>Volcanos + beaches</td></tr>
+          <tr><td>Budget/person</td><td>$4,500–$7,000</td></tr>
+          <tr><td>Kids Rating</td><td>⭐⭐⭐⭐</td></tr>
+        </table>
+        <div style="margin-top:12px;font-size:12px;color:#374151">
+          <strong>Pros:</strong> Volcanoes NP, green/black sand beaches, stargazing<br>
+          <strong>Cons:</strong> Big Island needs a rental car, spread out
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Scenario C -->
+  <div id="sc-c" class="tab-content" style="display:none">
+    <div class="card" style="border-top:4px solid #f59e0b">
+      <h3>🗺️ 3-Island Route: Oahu → Maui → Kauai</h3>
+      <div class="grid2">
+        <div>
+          <table>
+            <tr><th>Island</th><th>Days</th><th>Focus</th></tr>
+            <tr><td><strong>Oahu</strong></td><td>3 days</td><td>Waikiki, Pearl Harbor, Diamond Head, Honolulu food scene</td></tr>
+            <tr><td><strong>Maui</strong></td><td>5 days</td><td>Haleakala, Road to Hana, whale watching, beaches</td></tr>
+            <tr><td><strong>Kauai</strong></td><td>4 days</td><td>Na Pali Coast, Waimea Canyon, Hanalei Bay</td></tr>
+            <tr><td><strong>Total</strong></td><td><strong>12 days</strong></td><td>+ 2 travel/buffer days = 14 days ideal</td></tr>
+          </table>
+          <div style="margin-top:12px;padding:10px;background:#fffbeb;border-radius:8px;font-size:12px;color:#92400e">
+            ⚠️ <strong>3 islands requires 2 inter-island flights.</strong> Book Hawaiian Airlines or Southwest for all legs. Budget ~$150–300/person for inter-island flights.
+          </div>
+        </div>
+        <div>
+          <h4 style="font-size:13px;font-weight:700;margin-bottom:10px">Transportation Logistics</h4>
+          <ul class="checklist">
+            <li>Book inter-island flights at same time as main tickets</li>
+            <li>Rent 3–4 vehicles (7-passenger minivans preferred)</li>
+            <li>Coordinate hotel check-ins across all 3 islands in advance</li>
+            <li>Allow half-day buffer on flight days — no beach rush</li>
+            <li>Hawaiian Airlines has best inter-island frequency</li>
+            <li>Pack light for inter-island — check bags add cost</li>
+          </ul>
+          <div style="margin-top:12px;padding:10px;background:#f0fdf4;border-radius:8px;font-size:12px">
+            <strong>Best for:</strong> Families who want the full Hawaii experience and have 12–14 days. Kids 11–18 will love the variety.
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════ BOOKING -->
+<div id="booking" class="section">
+  <h2 class="sec-title">💰 Best Deals & Booking Strategy</h2>
+
+  <div class="card" style="background:linear-gradient(135deg,#eff6ff,#dbeafe);border-color:#bfdbfe">
+    <h3>🎯 Best Strategy for 15–18 People</h3>
+    <div class="grid3" style="font-size:12px">
+      <div><strong>✈️ Flights:</strong> Book 6–9 months out (March–June 2026). Use points: Chase UR → United or Southwest. Southwest has no change fees — good for group flexibility.</div>
+      <div><strong>🏨 Hotels:</strong> Book vacation rental homes (VRBO/Airbnb) for 3–4 properties side-by-side OR a resort block. Call resort group sales desks directly for discounts.</div>
+      <div><strong>🚗 Rental Cars:</strong> Need 3–4 vehicles. Book Costco Travel or Turo for best rates. Reserve early — December is peak, cars sell out.</div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h3>📦 Travel Package Providers</h3>
+    <table>
+      <tr><th>Provider</th><th>Best For</th><th>Group Benefit</th><th>Discount</th><th>Rating</th></tr>
+      <tr><td><strong>Costco Travel</strong></td><td>Best overall value</td><td>Group rates available, free activities</td><td>10–15%</td><td class="star">⭐⭐⭐⭐⭐</td></tr>
+      <tr><td><strong>Hawaiian Airlines Vacations</strong></td><td>Hawaii specialists</td><td>Group desk, inter-island bundles</td><td>8–12%</td><td class="star">⭐⭐⭐⭐⭐</td></tr>
+      <tr><td><strong>AAA Travel</strong></td><td>Members w/ kids</td><td>Member discounts + free maps/guides</td><td>5–10%</td><td class="star">⭐⭐⭐⭐</td></tr>
+      <tr><td><strong>Southwest Vacations</strong></td><td>Flexible booking</td><td>No change fees, Rapid Rewards pts</td><td>5–8%</td><td class="star">⭐⭐⭐⭐</td></tr>
+      <tr><td><strong>Expedia / Priceline</strong></td><td>Price comparison</td><td>Loyalty points, bundle deals</td><td>5–12%</td><td class="star">⭐⭐⭐</td></tr>
+      <tr><td><strong>Delta Vacations</strong></td><td>Delta flyers</td><td>SkyMiles bonuses on packages</td><td>5–10%</td><td class="star">⭐⭐⭐⭐</td></tr>
+      <tr><td><strong>Roberts Hawaii</strong></td><td>Local specialist</td><td>Group tours, airport transfers</td><td>Group pricing</td><td class="star">⭐⭐⭐⭐</td></tr>
+    </table>
+  </div>
+
+  <div class="grid2">
+    <div class="card">
+      <h3>🏨 Accommodation Strategy</h3>
+      <ul class="checklist">
+        <li>VRBO large homes (3–4 homes, 4–5 people each) — most cost-effective</li>
+        <li>Resort condo buildings (Marriott, Westin) — group booking discounts</li>
+        <li>Book a resort "room block" — call group sales, ask for 10+ room rate</li>
+        <li>Maui: Kaanapali or Wailea for best resort options</li>
+        <li>Kauai: Princeville or Poipu for group-friendly condos</li>
+        <li>Big Island: Kohala Coast resorts (Mauna Kea, Four Seasons)</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h3>⏰ Booking Timeline</h3>
+      <table>
+        <tr><th>When</th><th>What to Book</th></tr>
+        <tr><td><strong>Now–Jan 2026</strong></td><td>Decide islands, set dates, agree on budget</td></tr>
+        <tr><td><strong>Feb–Mar 2026</strong></td><td>Book flights (6–9 mo out for best prices)</td></tr>
+        <tr><td><strong>Mar–Apr 2026</strong></td><td>Book hotels/VRBO — December fills fast</td></tr>
+        <tr><td><strong>May–Jun 2026</strong></td><td>Book rental cars, popular excursions</td></tr>
+        <tr><td><strong>Sep–Oct 2026</strong></td><td>Book restaurants, luaus, tours</td></tr>
+        <tr><td><strong>Nov 2026</strong></td><td>Final confirmations, travel insurance</td></tr>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════ MUST VISIT -->
+<div id="mustvisit" class="section">
+  <h2 class="sec-title">📍 Top 10 Unique Must-Visit Places</h2>
+  <div style="font-size:13px;color:#64748b;margin-bottom:18px">Beyond the tourist traps — experiences that will define your trip</div>
+  <table>
+    <tr><th>#</th><th>Place</th><th>Island</th><th>Why Unique</th><th>Family</th><th>Kids</th><th>Time</th><th>Cost</th></tr>
+    <tr><td><strong>1</strong></td><td><strong>Na Pali Coast</strong></td><td>Kauai</td><td>Most dramatic coastline on Earth — sea cliffs, sea caves, waterfalls. Boat or helicopter only (no road access)</td><td>⭐⭐⭐⭐⭐</td><td>⭐⭐⭐⭐</td><td>4–6 hrs</td><td>$150–250/pp</td></tr>
+    <tr><td><strong>2</strong></td><td><strong>Haleakala Sunrise</strong></td><td>Maui</td><td>Watch sunrise from above the clouds at 10,000 ft. Other-worldly volcanic landscape. Reserve months ahead</td><td>⭐⭐⭐⭐⭐</td><td>⭐⭐⭐⭐⭐</td><td>Half day</td><td>$30/car</td></tr>
+    <tr><td><strong>3</strong></td><td><strong>Hawaii Volcanoes NP</strong></td><td>Big Island</td><td>Live volcanic activity, lava tubes, crater walks. Only place on Earth to see active lava creation</td><td>⭐⭐⭐⭐⭐</td><td>⭐⭐⭐⭐⭐</td><td>Full day</td><td>$35/car</td></tr>
+    <tr><td><strong>4</strong></td><td><strong>Green Sand Beach</strong></td><td>Big Island</td><td>One of only 4 green sand beaches on Earth. Formed by olivine crystals from ancient lava. 2.5mi hike each way</td><td>⭐⭐⭐⭐</td><td>⭐⭐⭐</td><td>4–5 hrs</td><td>Free</td></tr>
+    <tr><td><strong>5</strong></td><td><strong>Road to Hana</strong></td><td>Maui</td><td>62 miles, 620 curves, 59 bridges, 80+ waterfalls. The hidden stops (Twin Falls, Wai'anapanapa) beat the main sights</td><td>⭐⭐⭐⭐⭐</td><td>⭐⭐⭐⭐</td><td>Full day</td><td>Gas + $5–10 stops</td></tr>
+    <tr><td><strong>6</strong></td><td><strong>Waimea Canyon</strong></td><td>Kauai</td><td>"Grand Canyon of the Pacific" — 3,600 ft deep, red and purple canyon walls, mist-covered</td><td>⭐⭐⭐⭐⭐</td><td>⭐⭐⭐⭐⭐</td><td>3–4 hrs</td><td>$35/car</td></tr>
+    <tr><td><strong>7</strong></td><td><strong>Molokini Snorkeling</strong></td><td>Maui</td><td>Submerged volcanic crater with 150ft visibility. Dolphins, rays, turtles inside the protected lagoon</td><td>⭐⭐⭐⭐⭐</td><td>⭐⭐⭐⭐⭐</td><td>Half day</td><td>$80–130/pp</td></tr>
+    <tr><td><strong>8</strong></td><td><strong>Waipio Valley</strong></td><td>Big Island</td><td>Sacred ancient Hawaiian valley — black sand beach, taro fields, wild horses. No regular vehicles allowed</td><td>⭐⭐⭐⭐</td><td>⭐⭐⭐⭐</td><td>Half day</td><td>$50–100 tour</td></tr>
+    <tr><td><strong>9</strong></td><td><strong>Mauna Kea Summit</strong></td><td>Big Island</td><td>World's best stargazing at 13,796 ft. Telescopes, clear skies, above 40% of Earth's atmosphere</td><td>⭐⭐⭐⭐</td><td>⭐⭐⭐⭐</td><td>Evening</td><td>Free (guided $150)</td></tr>
+    <tr><td><strong>10</strong></td><td><strong>Hanalei Bay</strong></td><td>Kauai</td><td>Movie-perfect bay (Pirates of Caribbean filmed here). Taro fields, waterfalls behind, perfect swimming</td><td>⭐⭐⭐⭐⭐</td><td>⭐⭐⭐⭐⭐</td><td>Full day</td><td>Free</td></tr>
+  </table>
+</div>
+
+<!-- ═══════════════════════════════════════════════ NATURE -->
+<div id="nature" class="section">
+  <h2 class="sec-title">🌿 Nature Lovers Guide</h2>
+  <div class="grid2">
+    <div class="card">
+      <h3>🌺 Top 20 Nature Experiences</h3>
+      <div class="nature-item"><div class="nature-num">1</div><div><strong>Haleakala Sunrise</strong> — Maui<br><span style="font-size:11px;color:#64748b">Difficulty: Easy · Kid-friendly · 2 hrs · 📸 Rating: 10/10</span></div></div>
+      <div class="nature-item"><div class="nature-num">2</div><div><strong>Na Pali Coast Boat Tour</strong> — Kauai<br><span style="font-size:11px;color:#64748b">Difficulty: Easy · Kid-friendly · 4–6 hrs · 📸 Rating: 10/10</span></div></div>
+      <div class="nature-item"><div class="nature-num">3</div><div><strong>Lava Fields Walk</strong> — Big Island<br><span style="font-size:11px;color:#64748b">Difficulty: Moderate · Ages 10+ · 2–3 hrs · 📸 Rating: 9/10</span></div></div>
+      <div class="nature-item"><div class="nature-num">4</div><div><strong>Whale Watching</strong> — Maui (Dec peak!)<br><span style="font-size:11px;color:#64748b">Difficulty: Easy · Kid-friendly · 2–3 hrs · 📸 Rating: 9/10</span></div></div>
+      <div class="nature-item"><div class="nature-num">5</div><div><strong>Waimea Canyon Hike</strong> — Kauai<br><span style="font-size:11px;color:#64748b">Difficulty: Moderate · Ages 12+ · 3–4 hrs · 📸 Rating: 9/10</span></div></div>
+      <div class="nature-item"><div class="nature-num">6</div><div><strong>Sea Turtle Snorkeling</strong> — Maui/Big Island<br><span style="font-size:11px;color:#64748b">Difficulty: Easy · Kid-friendly · 1–2 hrs · 📸 Rating: 9/10</span></div></div>
+      <div class="nature-item"><div class="nature-num">7</div><div><strong>Thurston Lava Tube</strong> — Big Island<br><span style="font-size:11px;color:#64748b">Difficulty: Easy · Kid-friendly · 45 min · 📸 Rating: 8/10</span></div></div>
+      <div class="nature-item"><div class="nature-num">8</div><div><strong>Napali Hiking (Kalalau)</strong> — Kauai<br><span style="font-size:11px;color:#64748b">Difficulty: Hard · Adults · Full day · 📸 Rating: 10/10</span></div></div>
+      <div class="nature-item"><div class="nature-num">9</div><div><strong>Akaka Falls</strong> — Big Island<br><span style="font-size:11px;color:#64748b">Difficulty: Easy · Kid-friendly · 1 hr · 📸 Rating: 8/10</span></div></div>
+      <div class="nature-item"><div class="nature-num">10</div><div><strong>Mauna Kea Stargazing</strong> — Big Island<br><span style="font-size:11px;color:#64748b">Difficulty: Easy · Ages 13+ · Evening · 📸 Rating: 10/10</span></div></div>
+      <div class="nature-item"><div class="nature-num">11</div><div><strong>Manoa Falls Hike</strong> — Oahu<br><span style="font-size:11px;color:#64748b">Difficulty: Easy · Kid-friendly · 1.5 hrs · 📸 Rating: 8/10</span></div></div>
+      <div class="nature-item"><div class="nature-num">12</div><div><strong>Iao Valley</strong> — Maui<br><span style="font-size:11px;color:#64748b">Difficulty: Easy · Kid-friendly · 1 hr · 📸 Rating: 8/10</span></div></div>
+      <div class="nature-item"><div class="nature-num">13</div><div><strong>Black Sand Beach (Punalu'u)</strong> — Big Island<br><span style="font-size:11px;color:#64748b">Difficulty: Easy · Kid-friendly · 1–2 hrs · 📸 Rating: 9/10</span></div></div>
+      <div class="nature-item"><div class="nature-num">14</div><div><strong>Kipahulu Pools (7 Sacred Pools)</strong> — Maui<br><span style="font-size:11px;color:#64748b">Difficulty: Moderate · Ages 10+ · 2–3 hrs · 📸 Rating: 9/10</span></div></div>
+      <div class="nature-item"><div class="nature-num">15</div><div><strong>Waipio Valley Lookout</strong> — Big Island<br><span style="font-size:11px;color:#64748b">Difficulty: Easy · Kid-friendly · 30 min · 📸 Rating: 9/10</span></div></div>
+      <div class="nature-item"><div class="nature-num">16</div><div><strong>Koke'e State Park</strong> — Kauai<br><span style="font-size:11px;color:#64748b">Difficulty: Moderate · Ages 12+ · Half day · 📸 Rating: 8/10</span></div></div>
+      <div class="nature-item"><div class="nature-num">17</div><div><strong>Dolphin Snorkel — Spinner Dolphins</strong> — Big Island<br><span style="font-size:11px;color:#64748b">Difficulty: Easy · Kid-friendly · 3 hrs · 📸 Rating: 9/10</span></div></div>
+      <div class="nature-item"><div class="nature-num">18</div><div><strong>Nene Goose Spotting</strong> — Haleakala, Kauai<br><span style="font-size:11px;color:#64748b">Difficulty: Easy · Kid-friendly · Any time · 📸 Rating: 7/10</span></div></div>
+      <div class="nature-item"><div class="nature-num">19</div><div><strong>Hana Rainforest</strong> — Maui<br><span style="font-size:11px;color:#64748b">Difficulty: Easy · Kid-friendly · 1–2 hrs · 📸 Rating: 8/10</span></div></div>
+      <div class="nature-item"><div class="nature-num">20</div><div><strong>Kalapana Lava Ocean Entry</strong> — Big Island<br><span style="font-size:11px;color:#64748b">Difficulty: Moderate · Ages 13+ · 3–4 hrs · 📸 Rating: 10/10</span></div></div>
+    </div>
+    <div>
+      <div class="card">
+        <h3>🐋 December Wildlife Calendar</h3>
+        <table>
+          <tr><th>Wildlife</th><th>Where</th><th>Dec Rating</th></tr>
+          <tr><td>🐋 Humpback Whales</td><td>Maui, all islands</td><td class="star">⭐⭐⭐⭐⭐ Peak!</td></tr>
+          <tr><td>🐢 Green Sea Turtles</td><td>All islands</td><td class="star">⭐⭐⭐⭐⭐</td></tr>
+          <tr><td>🐬 Spinner Dolphins</td><td>Big Island, Oahu</td><td class="star">⭐⭐⭐⭐</td></tr>
+          <tr><td>🦈 Reef Sharks</td><td>Kauai, Oahu</td><td class="star">⭐⭐⭐</td></tr>
+          <tr><td>🐟 Tropical Fish</td><td>All islands</td><td class="star">⭐⭐⭐⭐⭐</td></tr>
+          <tr><td>🦅 Hawaiian Monk Seal</td><td>Kauai (rare)</td><td class="star">⭐⭐⭐</td></tr>
+        </table>
+      </div>
+      <div class="card">
+        <h3>🥾 Best Hikes for Families with Teens</h3>
+        <table>
+          <tr><th>Trail</th><th>Island</th><th>Difficulty</th><th>Distance</th></tr>
+          <tr><td>Diamond Head Summit</td><td>Oahu</td><td>Easy</td><td>1.6 mi</td></tr>
+          <tr><td>Pipiwai Trail</td><td>Maui</td><td>Moderate</td><td>4 mi</td></tr>
+          <tr><td>Kalalau Lookout</td><td>Kauai</td><td>Easy</td><td>0.5 mi</td></tr>
+          <tr><td>Mauna Loa Strip Road</td><td>Big Island</td><td>Easy–Mod</td><td>Varies</td></tr>
+          <tr><td>Awa'awapuhi Trail</td><td>Kauai</td><td>Moderate</td><td>6.2 mi</td></tr>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════ FOOD -->
+<div id="food" class="section">
+  <h2 class="sec-title">🍽️ Food & Drink Lovers Guide</h2>
+  <div class="grid2">
+    <div class="card">
+      <h3>🍱 Must-Try Foods</h3>
+      <table>
+        <tr><th>Food</th><th>What It Is</th><th>Where to Get It</th></tr>
+        <tr><td>🐟 <strong>Poke</strong></td><td>Cubed ahi tuna with soy, sesame, onion</td><td>Every island — get it from grocery deli counters</td></tr>
+        <tr><td>🍳 <strong>Loco Moco</strong></td><td>Rice + hamburger patty + fried egg + gravy</td><td>Cafe 100 (Big Island), local diners everywhere</td></tr>
+        <tr><td>🐷 <strong>Kalua Pork</strong></td><td>Underground-cooked whole pig — smoky, tender</td><td>Any luau, Helena's Hawaiian Food (Oahu)</td></tr>
+        <tr><td>🧊 <strong>Shave Ice</strong></td><td>Fine-shaved ice + syrup + ice cream base</td><td>Matsumoto's (Oahu), Ululani's (Maui)</td></tr>
+        <tr><td>🍩 <strong>Malasadas</strong></td><td>Portuguese fried donut — sugar coated</td><td>Leonard's Bakery (Oahu) — must visit</td></tr>
+        <tr><td>🦐 <strong>Garlic Shrimp</strong></td><td>North Shore Oahu shrimp trucks — butter+garlic</td><td>Giovanni's, Romy's — Haleiwa, Oahu</td></tr>
+        <tr><td>🥗 <strong>Acai Bowl</strong></td><td>Thick acai + granola + tropical fruit</td><td>Surf camps, health spots on every island</td></tr>
+        <tr><td>🍮 <strong>Haupia</strong></td><td>Coconut milk pudding — Hawaiian dessert</td><td>Luaus, local bakeries</td></tr>
+        <tr><td>🐟 <strong>Fresh Ahi Sashimi</strong></td><td>Same-day caught yellowfin tuna</td><td>Fish markets, harbor restaurants</td></tr>
+        <tr><td>🍖 <strong>Hawaiian BBQ</strong></td><td>Plate lunch — protein + 2 scoops rice + mac salad</td><td>L&L Hawaiian BBQ chain, local diners</td></tr>
+      </table>
+    </div>
+    <div>
+      <div class="card">
+        <h3>🍹 Must-Try Drinks</h3>
+        <div class="grid2">
+          <div class="food-card"><h4>☕ Kona Coffee</h4><p>World-famous Kona coast beans. Visit a farm for tastings. Best on Big Island.</p></div>
+          <div class="food-card"><h4>🍹 Mai Tai</h4><p>Classic rum cocktail. Best at Hula Grill (Maui) and Dukes (all islands).</p></div>
+          <div class="food-card"><h4>🥥 Fresh Coconut</h4><p>Roadside coconuts — refreshing, hydrating. Halved with a straw, $5–7.</p></div>
+          <div class="food-card"><h4>🌸 Lilikoi Drinks</h4><p>Passion fruit in everything — juice, lemonade, cocktails. Incredibly refreshing.</p></div>
+          <div class="food-card"><h4>🍍 Pineapple Smoothie</h4><p>Fresh pressed with local pineapple. Dole Plantation (Oahu) is iconic.</p></div>
+          <div class="food-card"><h4>🍺 Kona Brewing Co.</h4><p>Best local craft beer. Big Wave Golden Ale is the quintessential Hawaii beer.</p></div>
+        </div>
+      </div>
+      <div class="card">
+        <h3>🏆 Top Restaurant Picks</h3>
+        <table>
+          <tr><th>Restaurant</th><th>Island</th><th>Type</th><th>Kid-Friendly</th></tr>
+          <tr><td>Mama's Fish House</td><td>Maui</td><td>Oceanfront, upscale</td><td>⭐⭐⭐</td></tr>
+          <tr><td>Hula Grill</td><td>Maui</td><td>Beach, casual, full menu</td><td>⭐⭐⭐⭐⭐</td></tr>
+          <tr><td>Giovanni's Shrimp Truck</td><td>Oahu</td><td>Food truck, iconic</td><td>⭐⭐⭐⭐⭐</td></tr>
+          <tr><td>Cafe 100</td><td>Big Island</td><td>Local diner, cheap</td><td>⭐⭐⭐⭐⭐</td></tr>
+          <tr><td>Beach House Restaurant</td><td>Kauai</td><td>Sunset dining, seafood</td><td>⭐⭐⭐⭐</td></tr>
+          <tr><td>Roy's Hawaii</td><td>Multiple</td><td>Hawaii Regional Cuisine</td><td>⭐⭐⭐</td></tr>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════ KIDS -->
+<div id="kids" class="section">
+  <h2 class="sec-title">🎉 Kids Corner — Ages 11–18</h2>
+  <div class="card" style="background:linear-gradient(135deg,#fdf4ff,#fae8ff);border-color:#e879f9">
+    <h3>🏆 Top 20 Kid-Approved Activities</h3>
+    <table>
+      <tr><th>#</th><th>Activity</th><th>Type</th><th>Age</th><th>Fun</th><th>Duration</th><th>Cost/pp</th></tr>
+      <tr><td>1</td><td>🤿 Molokini Snorkeling</td><td>Adventure</td><td>10+</td><td class="star">⭐⭐⭐⭐⭐</td><td>4 hrs</td><td>$80–130</td></tr>
+      <tr><td>2</td><td>🌋 Haleakala Sunrise</td><td>Nature</td><td>All</td><td class="star">⭐⭐⭐⭐⭐</td><td>Half day</td><td>$30/car</td></tr>
+      <tr><td>3</td><td>🦈 Shark Cage Dive</td><td>Extreme</td><td>13+</td><td class="star">⭐⭐⭐⭐⭐</td><td>3 hrs</td><td>$150</td></tr>
+      <tr><td>4</td><td>🏄 Surf Lessons</td><td>Water</td><td>10+</td><td class="star">⭐⭐⭐⭐⭐</td><td>2 hrs</td><td>$75–100</td></tr>
+      <tr><td>5</td><td>🚁 Helicopter Tour</td><td>Air</td><td>All</td><td class="star">⭐⭐⭐⭐⭐</td><td>45–60 min</td><td>$200–350</td></tr>
+      <tr><td>6</td><td>🎢 Zipline (Maui)</td><td>Adventure</td><td>10+</td><td class="star">⭐⭐⭐⭐⭐</td><td>2–3 hrs</td><td>$120–180</td></tr>
+      <tr><td>7</td><td>🐬 Dolphin Watching</td><td>Wildlife</td><td>All</td><td class="star">⭐⭐⭐⭐⭐</td><td>3–4 hrs</td><td>$80–120</td></tr>
+      <tr><td>8</td><td>🛶 Kayak Sea Caves (Kauai)</td><td>Water</td><td>12+</td><td class="star">⭐⭐⭐⭐⭐</td><td>4–5 hrs</td><td>$75–120</td></tr>
+      <tr><td>9</td><td>🌋 Lava Tube Walk</td><td>Nature</td><td>All</td><td class="star">⭐⭐⭐⭐</td><td>1 hr</td><td>$35/car</td></tr>
+      <tr><td>10</td><td>🏍️ ATV Adventure (Kauai)</td><td>Adventure</td><td>12+</td><td class="star">⭐⭐⭐⭐⭐</td><td>2–3 hrs</td><td>$120–160</td></tr>
+      <tr><td>11</td><td>🐋 Whale Watching (Dec!)</td><td>Wildlife</td><td>All</td><td class="star">⭐⭐⭐⭐⭐</td><td>2–3 hrs</td><td>$50–80</td></tr>
+      <tr><td>12</td><td>🌊 Cliff Jumping (Waimea Bay)</td><td>Extreme</td><td>14+</td><td class="star">⭐⭐⭐⭐⭐</td><td>2 hrs</td><td>Free</td></tr>
+      <tr><td>13</td><td>🎭 Luau (Feast at Lele)</td><td>Culture</td><td>All</td><td class="star">⭐⭐⭐⭐</td><td>3 hrs</td><td>$130–180</td></tr>
+      <tr><td>14</td><td>🧊 Shave Ice Quest</td><td>Food</td><td>All</td><td class="star">⭐⭐⭐⭐⭐</td><td>30 min</td><td>$5–8</td></tr>
+      <tr><td>15</td><td>🤸 Wipeout Water Park (Oahu)</td><td>Water Park</td><td>All</td><td class="star">⭐⭐⭐⭐</td><td>Full day</td><td>$60–80</td></tr>
+      <tr><td>16</td><td>🐠 Night Snorkel w/ Manta Rays</td><td>Water</td><td>12+</td><td class="star">⭐⭐⭐⭐⭐</td><td>2–3 hrs</td><td>$100–140</td></tr>
+      <tr><td>17</td><td>🌟 Stargazing — Mauna Kea</td><td>Nature</td><td>All</td><td class="star">⭐⭐⭐⭐⭐</td><td>Evening</td><td>Free/guided $150</td></tr>
+      <tr><td>18</td><td>🛺 Road to Hana Drive</td><td>Scenic</td><td>All</td><td class="star">⭐⭐⭐⭐</td><td>Full day</td><td>Gas only</td></tr>
+      <tr><td>19</td><td>🏊 Stand-Up Paddleboard</td><td>Water</td><td>10+</td><td class="star">⭐⭐⭐⭐</td><td>1–2 hrs</td><td>$40–70</td></tr>
+      <tr><td>20</td><td>🎨 Paint a Sunset (beach)</td><td>Creative</td><td>All</td><td class="star">⭐⭐⭐</td><td>2 hrs</td><td>$30–50</td></tr>
+    </table>
+  </div>
+
+  <div class="grid3">
+    <div class="card">
+      <h3>🍦 Best Food for Teens</h3>
+      <ul class="checklist">
+        <li><strong>Ululani's Shave Ice</strong> — Maui (3 locations)</li>
+        <li><strong>Da Kitchen</strong> — Maui burgers + plate lunch</li>
+        <li><strong>Zippy's</strong> — Oahu, legendary local fast food</li>
+        <li><strong>Leonard's Malasadas</strong> — Oahu, the original</li>
+        <li><strong>Kono's Burritos</strong> — North Shore Oahu</li>
+        <li><strong>Matsumoto's Shave Ice</strong> — Oahu, most famous</li>
+        <li><strong>North Shore shrimp trucks</strong> — best food trucks</li>
+        <li><strong>Big Island ice cream</strong> — Tropical Dreams Kona</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h3>📱 Teen-Approved Tips</h3>
+      <ul class="checklist">
+        <li>Download Google Maps offline for each island before you go</li>
+        <li>Sunrise Haleakala — most posted on social media of any Hawaii moment</li>
+        <li>Manta ray night snorkel is the #1 memory for teens every time</li>
+        <li>Buy reusable water bottles — Hawaii tap water is excellent</li>
+        <li>Rental cars need drivers 25+ (plan ahead for excursions)</li>
+        <li>December = whale season — don't skip the whale watch boat</li>
+        <li>Reef-safe sunscreen is required by law in Hawaii</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h3>🎒 What Kids 11–18 Pack</h3>
+      <ul class="checklist">
+        <li>Reef-safe sunscreen (SPF 50+) — non-negotiable</li>
+        <li>Rash guard for snorkeling — all day water protection</li>
+        <li>Water shoes — lava and rocks</li>
+        <li>Dry bag for phone — every boat tour gets wet</li>
+        <li>GoPro or waterproof camera</li>
+        <li>Light rain jacket — afternoon showers</li>
+        <li>Flip flops + closed-toe shoes (for lava walks)</li>
+        <li>Portable battery charger</li>
+      </ul>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════ DO'S AND DON'TS -->
+<div id="donts" class="section">
+  <h2 class="sec-title">⚠️ Do's & Don'ts — Read Before You Go</h2>
+
+  <div style="background:#fee2e2;border:2px solid #dc2626;border-radius:14px;padding:20px;margin-bottom:24px">
+    <h3 style="color:#b91c1c;font-size:16px;margin-bottom:14px">🚨 ABSOLUTE NO-NO's — These Can Result in Fines or Danger</h3>
+    <div class="grid2">
+      <div>
+        <div class="warn-card"><h4>🐢 Do NOT Touch Sea Turtles</h4><p>Federal law. $11,000 fine. Keep 10+ feet distance. They are protected under the Endangered Species Act.</p></div>
+        <div class="warn-card"><h4>🦭 Do NOT Approach Hawaiian Monk Seals</h4><p>Critically endangered. $50,000 fine. If you see one on the beach, rope it off and call wildlife services.</p></div>
+        <div class="warn-card"><h4>🪸 Do NOT Step on Coral</h4><p>Coral takes 100 years to grow an inch. One step kills years of growth. Stay in sandy channels.</p></div>
+        <div class="warn-card"><h4>🪨 Do NOT Remove Lava Rocks</h4><p>Taking lava rocks is not only illegal but considered deeply disrespectful by locals. Pele's curse is real in spirit.</p></div>
+      </div>
+      <div>
+        <div class="warn-card"><h4>🚧 Do NOT Trespass on Sacred Lands</h4><p>Heiau (temples) and sacred sites are protected. Respect kapu (forbidden) signs. Some spots are closed to visitors.</p></div>
+        <div class="warn-card"><h4>🌊 Do NOT Ignore Ocean Warning Flags</h4><p>Hawaii's ocean kills more tourists than anywhere in the US. Yellow = caution, Red = danger, Shorebreak kills. Always check surf.</p></div>
+        <div class="warn-card"><h4>🚗 Do NOT Leave Valuables in Cars</h4><p>Car break-ins are common at trailheads and beaches. Leave nothing visible. Use hotel safes.</p></div>
+        <div class="warn-card"><h4>🧴 Do NOT Use Non-Reef-Safe Sunscreen</h4><p>Oxybenzone and octinoxate sunscreens are banned in Hawaii. You can be fined. Buy reef-safe only.</p></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="grid2">
+    <div>
+      <h3 style="font-size:15px;font-weight:700;margin-bottom:12px;color:#15803d">✅ DO's — Best Practices</h3>
+      <div class="do-card"><h4>🤙 Learn Basic Hawaiian Words</h4><p>Mahalo (thank you), Aloha (hello/love/goodbye), Pau Hana (after work time), Kokua (help). Locals genuinely appreciate the effort.</p></div>
+      <div class="do-card"><h4>🏪 Support Local Businesses</h4><p>Eat at local diners, buy from farmers markets, use local tour operators. Tourism money stays in Hawaii this way.</p></div>
+      <div class="do-card"><h4>🌅 Wake Up Early</h4><p>Best beaches, sunrise spots, and hikes are empty before 8am. Crowds arrive by 10am. Early risers win Hawaii.</p></div>
+      <div class="do-card"><h4>🏥 Get Travel Insurance</h4><p>Medical care in Hawaii is very expensive. Group travel insurance for 15–18 people is a must for any emergency.</p></div>
+      <div class="do-card"><h4>📋 Make Restaurant Reservations</h4><p>December is peak season. Popular spots like Mama's Fish House book 3–6 months out. Book as soon as possible.</p></div>
+    </div>
+    <div>
+      <h3 style="font-size:15px;font-weight:700;margin-bottom:12px;color:#1d4ed8">ℹ️ Smart Group Travel Tips</h3>
+      <div class="do-card"><h4>📱 Create a Group Chat Before You Go</h4><p>WhatsApp group for all 15–18 travelers. Share location, meetup times, and activity sign-ups in real time.</p></div>
+      <div class="do-card"><h4>🚗 Designate Drivers Per Car</h4><p>Assign drivers and passengers for each vehicle in advance. Rotating helps everyone see the driving scenery.</p></div>
+      <div class="do-card"><h4>💊 Pack a First Aid Kit</h4><p>Blisters from lava walks, jellyfish stings, coral cuts — a good kit saves a trip to urgent care. Include Benadryl.</p></div>
+      <div class="do-card"><h4>📸 Designate a Photo Coordinator</h4><p>One person manages a shared photo album (Google Photos). Everyone contributes. Trip memories stay organized.</p></div>
+      <div class="do-card"><h4>🍽️ Book a Group Luau Early</h4><p>Old Lahaina Luau and Feast at Lele are the best. Group of 15+ may qualify for reserved seating. Book 3–4 months out.</p></div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════ CULTURE -->
+<div id="culture" class="section">
+  <h2 class="sec-title">🎭 Culture & History</h2>
+  <div class="grid2">
+    <div class="card">
+      <h3>📜 Hawaiian History Overview</h3>
+      <table>
+        <tr><th>Era</th><th>Event</th></tr>
+        <tr><td>300–600 AD</td><td>Polynesian settlers arrive by canoe from Marquesas Islands</td></tr>
+        <tr><td>1000–1200 AD</td><td>Second wave from Tahiti — establishes kapu system and ali'i (royalty)</td></tr>
+        <tr><td>1778</td><td>Captain James Cook "discovers" Hawaii — calls it Sandwich Islands</td></tr>
+        <tr><td>1810</td><td>King Kamehameha I unifies all islands into the Hawaiian Kingdom</td></tr>
+        <tr><td>1820s</td><td>American missionaries arrive, drastically change Hawaiian culture</td></tr>
+        <tr><td>1893</td><td>Queen Lili'uokalani overthrown in US-backed coup d'état</td></tr>
+        <tr><td>1898</td><td>US annexes Hawaii as a territory</td></tr>
+        <tr><td>1941</td><td>Pearl Harbor attack — Hawaii becomes center of WWII Pacific theater</td></tr>
+        <tr><td>1959</td><td>Hawaii becomes the 50th US state</td></tr>
+        <tr><td>Today</td><td>Hawaiian cultural renaissance — language, hula, canoe paddling revived</td></tr>
+      </table>
+    </div>
+    <div>
+      <div class="card">
+        <h3>🌺 Traditions & Customs</h3>
+        <ul class="checklist">
+          <li><strong>Aloha Spirit:</strong> Not just a word — it's a philosophy of mutual respect and caring for others. Live it during your trip.</li>
+          <li><strong>Lei Greeting:</strong> Leis are given in love and respect. Never refuse one, never throw one away — return it to the earth.</li>
+          <li><strong>Hula:</strong> Ancient storytelling through dance. Attend a real cultural performance, not just a hotel show.</li>
+          <li><strong>Kapu System:</strong> Ancient Hawaiian laws. Many sacred places still carry their spiritual significance today.</li>
+          <li><strong>Pele:</strong> Goddess of volcanoes. Hawaiians consider Pele's lava as sacred creation. Never take rocks.</li>
+          <li><strong>Kuleana:</strong> Responsibility and privilege. Visitors have a responsibility to care for the islands.</li>
+          <li><strong>Pidgin English:</strong> Local dialect — "da kine" (that thing), "brah" (brother/friend), "shaka" 🤙 (hang loose)</li>
+        </ul>
+      </div>
+      <div class="card">
+        <h3>📚 Things to Know Before Arriving</h3>
+        <ul class="checklist">
+          <li>Hawaii is the most isolated island chain on Earth — respect its fragility</li>
+          <li>The Hawaiian language is alive and taught in schools — many signs are bilingual</li>
+          <li>Locals are proud of their culture — ask questions respectfully</li>
+          <li>Don't call Mainlanders "Americans" in front of locals — Hawaiians are Americans too, but have a distinct identity</li>
+          <li>Some beaches have restricted hours or access — check local rules</li>
+          <li>Hawaii has its own time zone: Hawaii Standard Time (no Daylight Saving)</li>
+          <li>Tipping culture: 20% at restaurants, $2–5/bag for bellhops</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════ WEATHER -->
+<div id="weather" class="section">
+  <h2 class="sec-title">☁️ December 2026 Weather Guide</h2>
+  <div class="card">
+    <h3>🌡️ What to Expect in December</h3>
+    <div class="grid2">
+      <div>
+        <canvas id="weatherChart" style="max-height:240px"></canvas>
+      </div>
+      <div>
+        <table>
+          <tr><th>Category</th><th>Details</th></tr>
+          <tr><td>Air Temp</td><td>68°F–82°F (20°C–28°C)</td></tr>
+          <tr><td>Ocean Temp</td><td>74°F–77°F — warm and comfortable</td></tr>
+          <tr><td>Rain</td><td>Short afternoon showers (not all-day rain)</td></tr>
+          <tr><td>Wind</td><td>Trade winds 10–20 mph — refreshing</td></tr>
+          <tr><td>UV Index</td><td>7–9 (High) — apply SPF 50+ daily</td></tr>
+          <tr><td>Crowds</td><td>Holiday peak — book everything early</td></tr>
+          <tr><td>Sunset</td><td>~5:58pm — golden hour starts 5:30pm</td></tr>
+          <tr><td>🐋 Whales</td><td>Humpbacks arrive November — December peak!</td></tr>
+        </table>
+        <div style="margin-top:12px;padding:10px;background:#f0fdf4;border-radius:8px;font-size:12px;color:#15803d">
+          <strong>December Advantage:</strong> Whale season begins, green and lush from fall rain, temperatures are perfect — Hawaii's best-kept secret month.
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="grid3">
+    <div class="card">
+      <h3>👕 What to Wear</h3>
+      <ul class="checklist">
+        <li>Light shorts and t-shirts daily</li>
+        <li>One light jacket for evenings and Haleakala</li>
+        <li>Rash guards for water activities</li>
+        <li>Comfortable walking sandals</li>
+        <li>Closed-toe shoes for volcano/lava hikes</li>
+        <li>Waterproof sandals for waterfalls</li>
+        <li>Light layer for air-conditioned restaurants</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h3>🌧️ Rain Strategy</h3>
+      <ul class="checklist">
+        <li>Rain is usually brief afternoon showers</li>
+        <li>North shores get more rain than south shores</li>
+        <li>Kauai is wettest — pack for it</li>
+        <li>Plan beach mornings, activities afternoons</li>
+        <li>Have an indoor backup plan (museums, aquariums)</li>
+        <li>Rain gear: light packable rain jacket per person</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h3>🎄 Holiday Season Tips</h3>
+      <ul class="checklist">
+        <li>December 20–Jan 5 = peak peak — maximum crowds</li>
+        <li>Arrive before Dec 20 if possible for better rates</li>
+        <li>Restaurants book out weeks in advance for Christmas/NYE</li>
+        <li>Some beaches have Christmas events and decorations</li>
+        <li>Prices 20–30% higher than rest of December</li>
+        <li>Book all excursions months in advance</li>
+      </ul>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════ ITINERARY -->
+<div id="itinerary" class="section">
+  <h2 class="sec-title">📅 Sample Itineraries</h2>
+  <div class="tab-bar">
+    <button class="tab-btn active" onclick="showTab('it-7',this)">7 Days (1 Island)</button>
+    <button class="tab-btn" onclick="showTab('it-10',this)">10 Days (2 Islands)</button>
+    <button class="tab-btn" onclick="showTab('it-12',this)">12 Days (3 Islands)</button>
+  </div>
+
+  <div id="it-7" class="tab-content">
+    <div style="margin-bottom:8px;font-size:13px;color:#0369a1;font-weight:600">🏝️ 7 Days — Maui Only · Best Single Island Experience</div>
+    <div class="itin-day"><div class="itin-day-head">Day 1 — Arrival & Kaanapali</div>
+      <div class="itin-slot"><div class="itin-time">Morning</div><div>Arrive at Kahului Airport · check into resort · grocery run</div></div>
+      <div class="itin-slot"><div class="itin-time">Afternoon</div><div>Kaanapali Beach — first swim, orient the group</div></div>
+      <div class="itin-slot"><div class="itin-time">Evening</div><div>Sunset at Black Rock · group welcome dinner at Hula Grill</div></div>
+    </div>
+    <div class="itin-day"><div class="itin-day-head">Day 2 — Haleakala Sunrise + Upcountry</div>
+      <div class="itin-slot"><div class="itin-time">3:30am</div><div>Drive to Haleakala Summit (pre-reserved parking required)</div></div>
+      <div class="itin-slot"><div class="itin-time">6:30am</div><div>Sunrise above the clouds — most memorable moment of trip</div></div>
+      <div class="itin-slot"><div class="itin-time">Afternoon</div><div>Upcountry Maui: Surfing Goat Dairy, Kula farms, lavender farm</div></div>
+      <div class="itin-slot"><div class="itin-time">Evening</div><div>Paia town dinner · browse boutiques</div></div>
+    </div>
+    <div class="itin-day"><div class="itin-day-head">Day 3 — Road to Hana (Full Day)</div>
+      <div class="itin-slot"><div class="itin-time">7:00am</div><div>Early departure — beat the crowds. Grab Paia breakfast.</div></div>
+      <div class="itin-slot"><div class="itin-time">All day</div><div>Twin Falls · Wai'anapanapa Black Sand Beach · Bamboo Forest · Seven Sacred Pools</div></div>
+      <div class="itin-slot"><div class="itin-time">Evening</div><div>Return via reverse route or Upcountry (circle route)</div></div>
+    </div>
+    <div class="itin-day"><div class="itin-day-head">Day 4 — Molokini Snorkel + Luau</div>
+      <div class="itin-slot"><div class="itin-time">7:00am</div><div>Molokini Crater snorkel boat tour — 4-hour trip with dolphins</div></div>
+      <div class="itin-slot"><div class="itin-time">Afternoon</div><div>Beach recovery · nap · West Maui drive</div></div>
+      <div class="itin-slot"><div class="itin-time">Evening</div><div>Old Lahaina Luau — authentic Hawaiian feast and hula performance</div></div>
+    </div>
+    <div class="itin-day"><div class="itin-day-head">Day 5 — Whale Watching + Lahaina</div>
+      <div class="itin-slot"><div class="itin-time">Morning</div><div>Whale watching cruise (December is peak season!)</div></div>
+      <div class="itin-slot"><div class="itin-time">Afternoon</div><div>Lahaina town: Front Street shops, history walk, shave ice</div></div>
+      <div class="itin-slot"><div class="itin-time">Evening</div><div>Sunset from Lahaina Lighthouse · group dinner</div></div>
+    </div>
+    <div class="itin-day"><div class="itin-day-head">Day 6 — Zip-line + Wailea Beach</div>
+      <div class="itin-slot"><div class="itin-time">Morning</div><div>Kapalua Ziplines (teens) or Iao Valley State Park (younger kids)</div></div>
+      <div class="itin-slot"><div class="itin-time">Afternoon</div><div>Wailea Beach — most beautiful beach on Maui</div></div>
+      <div class="itin-slot"><div class="itin-time">Evening</div><div>Farewell dinner at Mama's Fish House or Spago</div></div>
+    </div>
+    <div class="itin-day"><div class="itin-day-head">Day 7 — Final Morning + Depart</div>
+      <div class="itin-slot"><div class="itin-time">Morning</div><div>Final beach sunrise · souvenir shopping · Ululani's shave ice</div></div>
+      <div class="itin-slot"><div class="itin-time">Afternoon</div><div>Check out · drive to Kahului · depart</div></div>
+    </div>
+  </div>
+
+  <div id="it-10" class="tab-content" style="display:none">
+    <div style="margin-bottom:8px;font-size:13px;color:#0369a1;font-weight:600">🏝️🏝️ 10 Days — Maui (6 days) + Kauai (4 days) · Best 2-Island Combo</div>
+    <div class="card" style="font-size:12px">
+      <div class="grid2">
+        <div>
+          <strong style="color:#0369a1">MAUI — Days 1–6</strong>
+          <div style="margin-top:8px">Day 1: Arrive Maui · Kaanapali Beach · welcome dinner</div>
+          <div>Day 2: Haleakala Sunrise + Upcountry farms</div>
+          <div>Day 3: Road to Hana full day</div>
+          <div>Day 4: Molokini snorkel + Old Lahaina Luau</div>
+          <div>Day 5: Whale watching + Lahaina town</div>
+          <div>Day 6: Zipline morning · fly to Kauai (45 min)</div>
+        </div>
+        <div>
+          <strong style="color:#0369a1">KAUAI — Days 7–10</strong>
+          <div style="margin-top:8px">Day 7: Arrive Kauai · Hanalei Bay swim · Hanalei town</div>
+          <div>Day 8: Na Pali Coast boat tour (full day)</div>
+          <div>Day 9: Waimea Canyon + Koke'e State Park · ATV tour</div>
+          <div>Day 10: Poipu Beach morning · depart from Lihue</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="it-12" class="tab-content" style="display:none">
+    <div style="margin-bottom:8px;font-size:13px;color:#0369a1;font-weight:600">🏝️🏝️🏝️ 12 Days — Oahu (3) + Maui (5) + Kauai (4) · Full Hawaii Experience</div>
+    <div class="card" style="font-size:12px">
+      <div class="grid3">
+        <div>
+          <strong style="color:#0369a1">OAHU — Days 1–3</strong>
+          <div style="margin-top:8px">Day 1: Arrive Honolulu · Waikiki · group dinner</div>
+          <div>Day 2: Pearl Harbor + Diamond Head + North Shore shrimp trucks</div>
+          <div>Day 3: Honolulu food tour · fly to Maui</div>
+        </div>
+        <div>
+          <strong style="color:#0369a1">MAUI — Days 4–8</strong>
+          <div style="margin-top:8px">Day 4: Arrive Maui · Kaanapali Beach</div>
+          <div>Day 5: Haleakala Sunrise</div>
+          <div>Day 6: Road to Hana</div>
+          <div>Day 7: Molokini + Luau</div>
+          <div>Day 8: Whale watching · fly to Kauai</div>
+        </div>
+        <div>
+          <strong style="color:#0369a1">KAUAI — Days 9–12</strong>
+          <div style="margin-top:8px">Day 9: Arrive Kauai · Hanalei Bay</div>
+          <div>Day 10: Na Pali Coast boat tour</div>
+          <div>Day 11: Waimea Canyon · ATV tour</div>
+          <div>Day 12: Poipu Beach · depart Lihue</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════ GROUP -->
+<div id="group" class="section">
+  <h2 class="sec-title">👨‍👩‍👧 Group Travel Planning (15–18 People)</h2>
+  <div class="grid2">
+    <div class="card">
+      <h3>🏨 Accommodation Strategy</h3>
+      <table>
+        <tr><th>Option</th><th>Type</th><th>Cost/Night</th><th>Best For</th></tr>
+        <tr><td>3–4 VRBO homes</td><td>Vacation Rental</td><td>$500–1200/home</td><td>Privacy, kitchen, togetherness</td></tr>
+        <tr><td>Resort room block</td><td>Hotel</td><td>$300–600/room</td><td>Amenities, pools, concierge</td></tr>
+        <tr><td>Condo building</td><td>Condo</td><td>$250–500/unit</td><td>Best value with kitchens</td></tr>
+        <tr><td>Luxury villa</td><td>Private Villa</td><td>$2000–5000/villa</td><td>Special occasion, full privacy</td></tr>
+      </table>
+      <div style="margin-top:12px;padding:10px;background:#eff6ff;border-radius:8px;font-size:12px;color:#1d4ed8">
+        <strong>Recommendation:</strong> Book 2 large VRBO homes side-by-side (4–5 bedrooms each). Shared backyard, communal kitchen, pool — best group experience at best value.
+      </div>
+    </div>
+    <div class="card">
+      <h3>🚗 Transportation Planning</h3>
+      <table>
+        <tr><th>Vehicles</th><th>Capacity</th><th>Note</th></tr>
+        <tr><td>4× SUV/Minivan</td><td>7 per vehicle</td><td>Best for large groups</td></tr>
+        <tr><td>2× 15-passenger van</td><td>15 each</td><td>Cheapest but hard to park</td></tr>
+        <tr><td>Mix: 2 SUV + 1 van</td><td>15–18 total</td><td>Most flexible option</td></tr>
+      </table>
+      <div style="margin-top:12px">
+        <ul class="checklist">
+          <li>Book rental cars as far in advance as possible — December sells out</li>
+          <li>Costco Travel, Turo, or directly with Alamo/National for best rates</li>
+          <li>Consider 1 minivan for family nights out together</li>
+          <li>Roberts Hawaii does group shuttle from airport ($30–50/pp)</li>
+          <li>Uber/Lyft available but expensive for large groups</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+  <div class="card">
+    <h3>💰 Budget Breakdown — Per Family of 4 (Moderate Level)</h3>
+    <table>
+      <tr><th>Category</th><th>Estimate</th><th>Notes</th></tr>
+      <tr><td>✈️ Flights (4 people RT)</td><td>$3,200–5,600</td><td>Book 6+ months out. Use points if possible.</td></tr>
+      <tr><td>🏨 Accommodation (10 nights)</td><td>$2,000–4,000</td><td>Split VRBO 4 ways per property</td></tr>
+      <tr><td>🚗 Rental Car (share)</td><td>$400–700</td><td>Split among families per vehicle</td></tr>
+      <tr><td>🍽️ Food (10 days)</td><td>$1,500–2,500</td><td>Mix cooking in + dining out</td></tr>
+      <tr><td>🎟️ Activities & Excursions</td><td>$1,500–3,000</td><td>Luau, whale watch, helicopter, snorkel</td></tr>
+      <tr><td>🛒 Groceries & Misc</td><td>$300–600</td><td>Stock the VRBO kitchen on arrival</td></tr>
+      <tr><td>✈️ Inter-island flights</td><td>$400–800</td><td>If doing 2–3 islands</td></tr>
+      <tr><td style="font-weight:700">💵 TOTAL (Family of 4)</td><td style="font-weight:700;color:#0369a1">$9,300–17,200</td><td>Wide range based on luxury level</td></tr>
+      <tr><td style="font-weight:700">Per Person</td><td style="font-weight:700;color:#0369a1">$2,325–4,300</td><td>Group discounts can save 10–15%</td></tr>
+    </table>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════ PACKING -->
+<div id="packing" class="section">
+  <h2 class="sec-title">🎒 Complete Packing Guide</h2>
+  <div class="grid2">
+    <div class="card">
+      <h3>🏖️ Beach Essentials</h3>
+      <div class="pack-items">
+        <span class="pack-item">Reef-safe sunscreen SPF 50</span>
+        <span class="pack-item">Rash guard (long sleeve)</span>
+        <span class="pack-item">Snorkel mask + fins</span>
+        <span class="pack-item">Underwater camera / GoPro</span>
+        <span class="pack-item">Dry bag for phone</span>
+        <span class="pack-item">Beach towels (2/person)</span>
+        <span class="pack-item">Water shoes</span>
+        <span class="pack-item">Reusable water bottle</span>
+        <span class="pack-item">Beach umbrella (1 per family)</span>
+        <span class="pack-item">Cooler bag for snacks</span>
+      </div>
+    </div>
+    <div class="card">
+      <h3>🥾 Hiking & Adventure</h3>
+      <div class="pack-items">
+        <span class="pack-item">Hiking shoes (closed toe)</span>
+        <span class="pack-item">Light rain jacket</span>
+        <span class="pack-item">Moisture-wicking shirts</span>
+        <span class="pack-item">Quick-dry shorts</span>
+        <span class="pack-item">Headlamp (for Haleakala)</span>
+        <span class="pack-item">Trekking poles (optional)</span>
+        <span class="pack-item">Layering fleece (summit)</span>
+        <span class="pack-item">Bug spray</span>
+        <span class="pack-item">Trail map (offline)</span>
+        <span class="pack-item">First aid kit</span>
+      </div>
+    </div>
+    <div class="card">
+      <h3>👨‍👩‍👧 Family Must-Haves</h3>
+      <div class="pack-items">
+        <span class="pack-item">Passports / ID for all</span>
+        <span class="pack-item">Travel insurance docs</span>
+        <span class="pack-item">Prescription medications</span>
+        <span class="pack-item">Motion sickness pills (boat tours)</span>
+        <span class="pack-item">After-sun lotion</span>
+        <span class="pack-item">Portable charger banks</span>
+        <span class="pack-item">Reef-safe sunscreen (kids)</span>
+        <span class="pack-item">Light long pants (evenings)</span>
+        <span class="pack-item">Flip flops + sneakers</span>
+        <span class="pack-item">Small backpack per person</span>
+      </div>
+    </div>
+    <div class="card">
+      <h3>💊 Medical & Safety</h3>
+      <div class="pack-items">
+        <span class="pack-item">Benadryl (jellyfish stings)</span>
+        <span class="pack-item">Hydrocortisone cream</span>
+        <span class="pack-item">Band-aids (lava cuts)</span>
+        <span class="pack-item">Antiseptic wipes</span>
+        <span class="pack-item">Ibuprofen / Tylenol</span>
+        <span class="pack-item">Seasickness bands</span>
+        <span class="pack-item">Electrolyte packets</span>
+        <span class="pack-item">Tweezers (sea urchin)</span>
+        <span class="pack-item">Aloe vera gel</span>
+        <span class="pack-item">Prescription meds (extra supply)</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════ RECOMMENDATIONS -->
+<div id="reco" class="section">
+  <h2 class="sec-title">⭐ Final Recommendations</h2>
+
+  <div style="margin-bottom:12px;padding:16px;background:linear-gradient(135deg,#0369a1,#0891b2);border-radius:14px;color:#fff;font-size:13px">
+    <strong style="font-size:15px">Executive Summary:</strong> For 7–8 families with teens in December 2026, a <strong>Maui + Kauai 10-day trip</strong> delivers the best balance of beaches, adventure, nature, whale watching, and family fun. Book by March 2026 for best prices.
+  </div>
+
+  <div class="grid2">
+    <div>
+      <div class="rec-winner">
+        <div class="trophy">🥇</div>
+        <div><div class="title">Best Single Island</div><div class="val">Maui</div><div class="sub">Best overall: beaches, food, whale watching, Haleakala</div></div>
+      </div>
+      <div class="rec-winner">
+        <div class="trophy">🏝️</div>
+        <div><div class="title">Best 2-Island Combo</div><div class="val">Maui + Kauai</div><div class="sub">10 days — beach + most dramatic scenery in Hawaii</div></div>
+      </div>
+      <div class="rec-winner">
+        <div class="trophy">👨‍👩‍👧</div>
+        <div><div class="title">Best Family Experience</div><div class="val">Maui</div><div class="sub">Molokini, whale watching, Road to Hana, luau</div></div>
+      </div>
+      <div class="rec-winner">
+        <div class="trophy">🌿</div>
+        <div><div class="title">Best Nature Experience</div><div class="val">Kauai</div><div class="sub">Na Pali Coast, Waimea Canyon, Hanalei Bay</div></div>
+      </div>
+    </div>
+    <div>
+      <div class="rec-winner">
+        <div class="trophy">🍽️</div>
+        <div><div class="title">Best Food Experience</div><div class="val">Maui</div><div class="sub">Mama's Fish House, Hula Grill, Poke, Ululani's Shave Ice</div></div>
+      </div>
+      <div class="rec-winner">
+        <div class="trophy">💵</div>
+        <div><div class="title">Best Value Option</div><div class="val">Big Island</div><div class="sub">Lower prices, world-class volcanos and stargazing, fewer crowds</div></div>
+      </div>
+      <div class="rec-winner">
+        <div class="trophy">🌟</div>
+        <div><div class="title">Most Memorable Experience</div><div class="val">Haleakala Sunrise</div><div class="sub">Every single person will call it a life highlight — Maui</div></div>
+      </div>
+      <div class="rec-winner">
+        <div class="trophy">🚁</div>
+        <div><div class="title">Best Luxury Add-On</div><div class="val">Helicopter Tour — Kauai</div><div class="sub">Na Pali from the air. 60 minutes. Worth every penny.</div></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card" style="margin-top:20px;border-top:4px solid #0891b2">
+    <h3>📋 Final Action Checklist</h3>
+    <div class="grid3">
+      <div>
+        <strong style="font-size:12px;color:#0369a1">NOW (6–12 months out)</strong>
+        <ul class="checklist" style="margin-top:8px">
+          <li>Agree on dates and budget with all families</li>
+          <li>Decide: 1, 2, or 3 islands</li>
+          <li>Create WhatsApp group for all families</li>
+          <li>Research flights — set fare alerts</li>
+        </ul>
+      </div>
+      <div>
+        <strong style="font-size:12px;color:#0369a1">3–6 MONTHS OUT</strong>
+        <ul class="checklist" style="margin-top:8px">
+          <li>Book all flights (best prices)</li>
+          <li>Book VRBO/resort (December books fast)</li>
+          <li>Book Old Lahaina Luau or Feast at Lele</li>
+          <li>Reserve Haleakala sunrise parking</li>
+        </ul>
+      </div>
+      <div>
+        <strong style="font-size:12px;color:#0369a1">1–3 MONTHS OUT</strong>
+        <ul class="checklist" style="margin-top:8px">
+          <li>Book rental cars (3–4 vehicles)</li>
+          <li>Book Molokini snorkel tour</li>
+          <li>Book whale watching cruise</li>
+          <li>Book helicopter tour (Kauai)</li>
+          <li>Purchase travel insurance</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</div>
+
+</div><!-- /main -->
+
+<script>
+// Navigation
+function show(id, el) {
+  document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+  document.querySelectorAll('#sidebar nav a').forEach(a => a.classList.remove('active'));
+  if(el) el.classList.add('active');
+  return false;
+}
+
+// Sub-tabs
+function showTab(id, btn) {
+  const parent = btn.closest('.section') || document.body;
+  parent.querySelectorAll('.tab-content').forEach(t => t.style.display='none');
+  const el = document.getElementById(id);
+  if(el) el.style.display='block';
+  btn.closest('.tab-bar').querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+}
+
+// Countdown
+function updateCountdown() {
+  const target = new Date('2026-12-20T06:00:00');
+  const now = new Date();
+  const diff = target - now;
+  if(diff > 0) {
+    document.getElementById('cd-days').textContent = Math.floor(diff/86400000);
+    document.getElementById('cd-hrs').textContent = Math.floor((diff%86400000)/3600000);
+    document.getElementById('cd-min').textContent = Math.floor((diff%3600000)/60000);
+  }
+}
+updateCountdown();
+setInterval(updateCountdown, 60000);
+
+// Radar Chart
+const ctx = document.getElementById('radarChart');
+if(ctx) {
+  new Chart(ctx, {
+    type: 'radar',
+    data: {
+      labels: ['Families','Kids','Food','Nature','Adventure','Scenery','Value'],
+      datasets: [
+        { label:'Oahu', data:[9,9,10,5,7,6,5], borderColor:'#2563eb', backgroundColor:'rgba(37,99,235,.15)', pointBackgroundColor:'#2563eb' },
+        { label:'Maui', data:[10,9,10,8,9,10,6], borderColor:'#0891b2', backgroundColor:'rgba(8,145,178,.15)', pointBackgroundColor:'#0891b2' },
+        { label:'Kauai', data:[8,7,6,10,8,10,8], borderColor:'#16a34a', backgroundColor:'rgba(22,163,74,.15)', pointBackgroundColor:'#16a34a' },
+        { label:'Big Island', data:[8,8,6,10,10,9,9], borderColor:'#dc2626', backgroundColor:'rgba(220,38,38,.1)', pointBackgroundColor:'#dc2626' },
+      ]
+    },
+    options: { responsive:true, scales:{ r:{ min:0,max:10, ticks:{stepSize:2,font:{size:9}}, pointLabels:{font:{size:10}} } }, plugins:{ legend:{ position:'bottom', labels:{font:{size:10}} } } }
+  });
+}
+
+// Weather Chart
+const wctx = document.getElementById('weatherChart');
+if(wctx) {
+  new Chart(wctx, {
+    type:'bar',
+    data: {
+      labels:['Maui','Kauai','Big Island','Oahu'],
+      datasets:[
+        { label:'High °F', data:[82,78,80,81], backgroundColor:'#0891b2' },
+        { label:'Low °F', data:[68,65,66,70], backgroundColor:'#bae6fd' },
+        { label:'Rain Days/mo', data:[8,14,6,10], backgroundColor:'#f59e0b', yAxisID:'y1' }
+      ]
+    },
+    options:{ responsive:true, scales:{ y:{title:{display:true,text:'Temperature (°F)'},min:50,max:95}, y1:{position:'right',title:{display:true,text:'Rain Days'}, min:0,max:20, grid:{drawOnChartArea:false}} }, plugins:{ legend:{ labels:{font:{size:10}} } } }
+  });
+}
+</script>
+</body>
+</html>

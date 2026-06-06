@@ -39,7 +39,8 @@ PAGES = [
     {"key": "cc_points", "label": "💳 CC & Points",     "kid_required": False},
     {"key": "travel",    "label": "✈️ Travel",          "kid_required": False},
     {"key": "calendar",  "label": "📅 Calendar",        "kid_required": False},
-    {"key": "accounts",  "label": "📊 Account Tracker", "kid_required": False},
+    {"key": "accounts",      "label": "📊 Account Tracker", "kid_required": False},
+    {"key": "destinations",  "label": "🗺️ Destinations",   "kid_required": False},
 ]
 
 PAGE_FEATURES: dict[str, list[tuple[str, str]]] = {
