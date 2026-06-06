@@ -16,6 +16,10 @@ import streamlit as st
 _LOGIN_CSS = """
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+/* Hide sidebar entirely on login screen */
+[data-testid="stSidebar"],
+[data-testid="stSidebarNav"],
+[data-testid="collapsedControl"] { display: none !important; }
 .login-wrap {
     max-width: 380px; margin: 80px auto 0 auto;
     padding: 40px 36px; background: #fff;

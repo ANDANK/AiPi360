@@ -208,6 +208,12 @@ def check_maintenance() -> None:
         return
     if is_maintenance_mode():
         msg = get_maintenance_message()
+        # Hide sidebar on maintenance screen
+        st.markdown(
+            "<style>[data-testid='stSidebar'],[data-testid='stSidebarNav'],"
+            "[data-testid='collapsedControl']{display:none!important}</style>",
+            unsafe_allow_html=True,
+        )
         st.markdown(
             f'<div style="max-width:560px;margin:80px auto;text-align:center;'
             f'background:#fef3c7;border:2px solid #f59e0b;border-radius:16px;padding:48px 40px;">'
