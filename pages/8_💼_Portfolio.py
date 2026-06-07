@@ -193,15 +193,19 @@ with tab_import:
     # ── File upload ───────────────────────────────────────────────────────────
     with st.expander("📋 How to export from your broker", expanded=False):
         st.markdown(
-            "**ToS / Schwab:**\n"
+            "**Schwab Transaction History** *(recommended — includes net_price)*\n"
+            "1. schwab.com → Accounts → History\n"
+            "2. Select account, set date range\n"
+            "3. Click **Export** (CSV) — file starts with `Date,Action,Symbol,...`\n\n"
+            "**ToS / Schwab Account Statement** *(thinkorswim)*\n"
             "1. thinkorswim → Monitor → Account Statement\n"
-            "2. Set date range (shorter for updates)\n"
-            "3. Expand: Account Trade History, Equities, Options\n"
-            "4. Export to File (CSV)\n\n"
+            "2. Expand: Account Trade History, Equities, Options\n"
+            "3. Export to File (CSV)\n\n"
             "**Robinhood:**\n"
-            "1. Account → History\n"
-            "2. Filter to desired date range\n"
-            "3. Export\n\n"
+            "1. Account → History → Export\n\n"
+            "**Fidelity:**\n"
+            "1. Accounts & Trade → Account History\n"
+            "2. Select date range → Download (CSV)\n\n"
             "> Remove any row with your account number before uploading."
         )
 
@@ -217,15 +221,17 @@ with tab_import:
 
         # Auto-detect broker
         broker = detect_broker(content)
-        _broker_labels = {"tos": "ToS / Schwab", "robinhood": "Robinhood"}
-        _broker_icons  = {"tos": "🟢", "robinhood": "🟣"}
 
         if broker == "robinhood":
             _delim = _rh_delimiter(content)
             _delim_label = "tab-separated" if _delim == "\t" else "comma-separated"
             st.caption(f"🟣 **Robinhood** ({_delim_label})")
         elif broker == "tos":
-            st.caption(f"🟢 **ToS / Schwab**")
+            st.caption("🟢 **ToS / Schwab** (Account Statement)")
+        elif broker == "schwab_tx":
+            st.caption("🟢 **Schwab Transaction History** (includes net commission price)")
+        elif broker == "fidelity":
+            st.caption("🔵 **Fidelity** Account History")
         else:
             st.error(f"Unrecognized format. First 150 chars: `{content[:150]}`")
             st.stop()

@@ -868,39 +868,562 @@ def parse_rh_csv(content: str,
     }
 
 
+# ══════════════════════════════════════════════════════════════════════════════
+# SCHWAB TRANSACTION HISTORY PARSER
+# (schwab.com → Accounts → History → Export CSV)
+#
+# CSV columns (row 0 = header, all quoted):
+#   Date | Action | Symbol | Description | Quantity | Price | Fees & Comm | Amount
+#
+# Option symbol format embedded in Symbol column:
+#   "NAIL 06/18/2026 50.00 C"   →  ticker=NAIL  expiry=06/18/2026  strike=50.00  type=CALL
+#   "HIMS 06/05/2026 22.50 P"   →  ticker=HIMS  ...                             type=PUT
+#
+# Amount = net cash (positive = received, negative = paid, already net of commission)
+# net_price = abs(Amount) / (qty * 100)  for options
+# net_price = abs(Amount) / qty           for stocks
+# ──────────────────────────────────────────────────────────────────────────────
+
+_SCHWAB_TX_OPT_RE = _re.compile(
+    r"^([\w.]+)\s+(\d{1,2}/\d{1,2}/\d{4})\s+([\d.]+)\s+(C|P)$",
+    _re.IGNORECASE,
+)
+
+_SCHWAB_TX_ACTIONS: dict[str, dict] = {
+    "sell to open":   {"side": "SELL", "pos": "TO OPEN",  "cat": "trade"},
+    "buy to open":    {"side": "BUY",  "pos": "TO OPEN",  "cat": "trade"},
+    "sell to close":  {"side": "SELL", "pos": "TO CLOSE", "cat": "trade"},
+    "buy to close":   {"side": "BUY",  "pos": "TO CLOSE", "cat": "trade"},
+    "sell":           {"side": "SELL", "pos": "TO CLOSE", "cat": "stock"},
+    "buy":            {"side": "BUY",  "pos": "TO OPEN",  "cat": "stock"},
+    "expired":        {"side": "BUY",  "pos": "TO CLOSE", "cat": "trade",
+                       "price_override": 0.0},
+    "assigned":       {"side": "BUY",  "pos": "TO CLOSE", "cat": "trade",
+                       "price_override": 0.0},
+    "exercise":       {"side": "SELL", "pos": "TO CLOSE", "cat": "trade",
+                       "price_override": 0.0},
+    "cash dividend":  {"cat": "cash", "cash_type": "Dividend"},
+    "dividends":      {"cat": "cash", "cash_type": "Dividend"},
+    "journal":        {"cat": "cash", "cash_type": "Transfer"},
+    "service fee":    {"cat": "cash", "cash_type": "Fee"},
+    "wire sent":      {"cat": "cash", "cash_type": "Transfer"},
+    "wire received":  {"cat": "cash", "cash_type": "Transfer"},
+    "journaled shares":  {"cat": "corporate"},
+    "stock split":       {"cat": "corporate"},
+    "exchange or exercise": {"cat": "corporate"},
+    "merger":            {"cat": "corporate"},
+    "spin-off":          {"cat": "corporate"},
+    "reinvest dividend": {"cat": "cash", "cash_type": "Reinvestment"},
+    "reinvest shares":   {"cat": "cash", "cash_type": "Reinvestment"},
+    "short sale":        {"side": "SELL", "pos": "TO OPEN",  "cat": "stock"},
+    "buy to cover":      {"side": "BUY",  "pos": "TO CLOSE", "cat": "stock"},
+}
+
+
+def _schwab_tx_parse_symbol(sym: str) -> dict:
+    """
+    Parse Schwab TX option symbol like 'NAIL 06/18/2026 50.00 C'.
+    Returns {ticker, expiry, expiry_str, strike, opt_type} or {} if not an option.
+    """
+    sym = sym.strip()
+    m = _SCHWAB_TX_OPT_RE.match(sym)
+    if not m:
+        return {}
+    ticker, date_str, strike_str, cp = m.groups()
+    try:
+        exp = datetime.strptime(date_str, "%m/%d/%Y").date()
+    except ValueError:
+        return {}
+    return {
+        "ticker":    ticker.upper(),
+        "expiry":    exp,
+        "expiry_str": exp.strftime("%d %b %y"),
+        "strike":    float(strike_str),
+        "opt_type":  "CALL" if cp.upper() == "C" else "PUT",
+    }
+
+
+def parse_schwab_tx_csv(content: str,
+                        account_name: str = "Schwab Account") -> dict:
+    """
+    Parse Schwab Transaction History CSV (schwab.com export).
+
+    Returns standard portfolio dict:
+        account_name, trades, cash_flows, corporates, equities=[], options=[]
+    """
+    content = _rh_clean(content)
+    reader  = csv.DictReader(io.StringIO(content))
+    trades     : list[dict] = []
+    cash_flows : list[dict] = []
+    corporates : list[dict] = []
+
+    for row in reader:
+        date_raw  = _s(row.get("Date", "")).strip('"')
+        action_raw= _s(row.get("Action", "")).strip('"')
+        symbol_raw= _s(row.get("Symbol", "")).strip('"')
+        desc_raw  = _s(row.get("Description", "")).strip('"')
+        qty_raw   = _s(row.get("Quantity", "")).strip('"')
+        price_raw = _s(row.get("Price", "")).strip('"')
+        fee_raw   = _s(row.get("Fees & Comm", "")).strip('"')
+        amt_raw   = _s(row.get("Amount", "")).strip('"')
+
+        if not date_raw or not action_raw:
+            continue
+
+        # Parse date
+        dt = None
+        for fmt in ("%m/%d/%Y", "%Y-%m-%d"):
+            try:
+                dt = datetime.strptime(date_raw, fmt)
+                break
+            except ValueError:
+                pass
+        date_str = dt.strftime("%Y-%m-%d") if dt else ""
+
+        action_key = action_raw.lower().strip()
+        meta = _SCHWAB_TX_ACTIONS.get(action_key)
+
+        # Try prefix-match for verbose actions not in the table
+        if meta is None:
+            for k, v in _SCHWAB_TX_ACTIONS.items():
+                if action_key.startswith(k):
+                    meta = v
+                    break
+
+        if meta is None:
+            # Unknown action — record as corporate/skip
+            corporates.append({"datetime": dt, "date_str": date_str,
+                                "action": action_raw, "symbol": symbol_raw,
+                                "description": desc_raw})
+            continue
+
+        cat = meta.get("cat", "corporate")
+
+        # ── Cash flow ─────────────────────────────────────────────────────────
+        if cat == "cash":
+            amount = _f(amt_raw)
+            cash_flows.append({
+                "datetime":    dt,
+                "date_str":    date_str,
+                "trans_code":  action_raw,
+                "cash_type":   meta.get("cash_type", "Other"),
+                "instrument":  symbol_raw,
+                "description": desc_raw,
+                "amount":      amount,
+            })
+            continue
+
+        # ── Corporate action ──────────────────────────────────────────────────
+        if cat == "corporate":
+            corporates.append({"datetime": dt, "date_str": date_str,
+                                "action": action_raw, "symbol": symbol_raw,
+                                "description": desc_raw})
+            continue
+
+        # ── Trade ─────────────────────────────────────────────────────────────
+        side = meta["side"]
+        pos  = meta["pos"]
+
+        # Parse price and amount
+        price  = _f(price_raw)
+        amount = _f(amt_raw)     # net cash (positive = received, negative = paid)
+        fee    = _f(fee_raw) or 0.0
+
+        if "price_override" in meta:
+            price = meta["price_override"]
+        if price is None:
+            price = 0.0
+
+        # Parse qty
+        qty_abs = abs(_f(qty_raw) or 0)
+        if not qty_abs and action_key in ("expired", "assigned", "exercise"):
+            qty_abs = 1
+        if not qty_abs:
+            continue
+
+        qty = qty_abs  # we store positive; side/pos_effect tells direction
+
+        # Try to parse option details from symbol
+        opt_info = _schwab_tx_parse_symbol(symbol_raw)
+        is_opt   = bool(opt_info)
+        ticker   = opt_info.get("ticker", symbol_raw) if is_opt else symbol_raw
+
+        expiry     = opt_info.get("expiry")
+        expiry_str = opt_info.get("expiry_str", "")
+        strike     = opt_info.get("strike")
+        instr_type = opt_info.get("opt_type", "STOCK") if is_opt else "STOCK"
+
+        multiplier = 100 if is_opt else 1
+
+        # Net price = commission-adjusted price per share
+        # Amount already nets out commission (Schwab includes fee in Amount)
+        if amount is not None and qty_abs:
+            net_price = abs(amount) / (qty_abs * multiplier)
+        else:
+            net_price = price
+
+        is_leaps = (
+            is_opt and expiry and dt is not None
+            and (expiry - dt.date()).days > 365
+        )
+        is_assignment_delivery = (
+            not is_opt and "assigned" in (desc_raw + action_raw).lower()
+        )
+
+        trade = {
+            "datetime":               dt,
+            "date_str":               date_str,
+            "spread_type":            "",
+            "side":                   side,
+            "qty":                    int(qty_abs) if is_opt else qty_abs,
+            "pos_effect":             pos,
+            "symbol":                 ticker,
+            "expiry":                 expiry,
+            "expiry_str":             expiry_str,
+            "strike":                 strike,
+            "instr_type":             instr_type,
+            "price":                  price,
+            "net_price":              net_price,
+            "order_type":             "MKT",
+            "is_option":              is_opt,
+            "is_stock":               not is_opt,
+            "is_leaps":               is_leaps,
+            "is_continuation":        False,
+            "broker":                 "Schwab",
+            "rh_trans_code":          "",
+            "is_assignment_delivery": is_assignment_delivery,
+        }
+        trade["strategy"] = _classify_strategy(trade)
+        if is_assignment_delivery:
+            trade["strategy"] = "CSP Assignment (stock)"
+        trades.append(trade)
+
+    return {
+        "account_name": account_name,
+        "trades":       trades,
+        "cash_flows":   cash_flows,
+        "corporates":   corporates,
+        "equities":     [],
+        "options":      [],
+        "broker":       "Schwab",
+    }
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# FIDELITY HISTORY PARSER
+# (Fidelity.com → Accounts & Trade → Account History → Download)
+#
+# CSV layout: 2 blank rows, then header row, then data.
+# Header: Run Date,Action,Symbol,Description,Type,Price ($),Quantity,
+#         Commission ($),Fees ($),Accrued Interest ($),Amount ($),
+#         Cash Balance ($),Settlement Date
+#
+# Action strings are verbose: "YOU SOLD PROSHARES ULTRAPRO QQQ (TQQQ) (Margin)"
+# Quantity is NEGATIVE for sells, positive for buys.
+# Amount ($) = net cash (positive = received, negative = paid).
+# ──────────────────────────────────────────────────────────────────────────────
+
+def _fidelity_parse_action(action: str) -> dict:
+    """
+    Classify a Fidelity verbose action string.
+    Returns {cat, side, pos} or {cat='cash', cash_type} or {cat='skip'}.
+    """
+    a = action.upper().strip()
+
+    # Strip trailing account-type suffix like "(Margin)" or "(Cash)"
+    a = _re.sub(r'\s*\((CASH|MARGIN)\)\s*$', '', a).strip()
+
+    if a.startswith("YOU SOLD OPENING"):
+        return {"cat": "trade", "side": "SELL", "pos": "TO OPEN"}
+    if a.startswith("YOU BOUGHT OPENING"):
+        return {"cat": "trade", "side": "BUY",  "pos": "TO OPEN"}
+    if a.startswith("YOU SOLD CLOSING"):
+        return {"cat": "trade", "side": "SELL", "pos": "TO CLOSE"}
+    if a.startswith("YOU BOUGHT CLOSING"):
+        return {"cat": "trade", "side": "BUY",  "pos": "TO CLOSE"}
+    if a.startswith("YOU SOLD"):
+        return {"cat": "stock", "side": "SELL", "pos": "TO CLOSE"}
+    if a.startswith("YOU BOUGHT"):
+        return {"cat": "stock", "side": "BUY",  "pos": "TO OPEN"}
+    if "EXPIRED" in a:
+        return {"cat": "trade", "side": "BUY",  "pos": "TO CLOSE",
+                "price_override": 0.0}
+    if "ASSIGNED" in a:
+        return {"cat": "trade", "side": "BUY",  "pos": "TO CLOSE",
+                "price_override": 0.0}
+    if "EXERCISED" in a or "EXERCISE" in a:
+        return {"cat": "trade", "side": "SELL", "pos": "TO CLOSE",
+                "price_override": 0.0}
+    if any(k in a for k in ("ELECTRONIC FUNDS TRANSFER", "DIRECT DEBIT",
+                             "DIRECT CREDIT", "ACH")):
+        sign_key = "Transfer"
+        return {"cat": "cash", "cash_type": sign_key}
+    if "DIVIDEND" in a:
+        return {"cat": "cash", "cash_type": "Dividend"}
+    if "REINVESTMENT" in a:
+        return {"cat": "skip"}   # money-market reinvestment, no P&L
+    if any(k in a for k in ("INTEREST", "MARGIN INTEREST")):
+        return {"cat": "cash", "cash_type": "Interest"}
+    if any(k in a for k in ("FEE", "COMMISSION")):
+        return {"cat": "cash", "cash_type": "Fee"}
+    if any(k in a for k in ("JOURNAL", "TRANSFER", "CONTRIBUTION",
+                             "WITHDRAWAL", "ROLLOVER")):
+        return {"cat": "cash", "cash_type": "Transfer"}
+    if any(k in a for k in ("SPLIT", "MERGER", "SPIN", "CONVERSION",
+                             "ACQUISITION", "EXCHANGE")):
+        return {"cat": "corporate"}
+
+    return {"cat": "skip"}
+
+
+# Fidelity option symbol format varies; try common patterns:
+#  "NAIL 06/18/2026 50.00 CALL"  or  "NAIL060 ..."  or bare description
+_FID_OPT_RE = _re.compile(
+    r"^([\w.]+)\s+(\d{1,2}/\d{1,2}/\d{4})\s+([\d.]+)\s+(CALL|PUT)",
+    _re.IGNORECASE,
+)
+
+
+def parse_fidelity_csv(content: str,
+                       account_name: str = "Fidelity Account") -> dict:
+    """
+    Parse Fidelity Account History CSV export.
+
+    Returns standard portfolio dict:
+        account_name, trades, cash_flows, corporates, equities=[], options=[]
+    """
+    content = _rh_clean(content)
+    lines   = content.split("\n")
+
+    # Find header row (skip blank lines at top)
+    header_idx = -1
+    for i, line in enumerate(lines):
+        stripped = line.strip().strip('"')
+        if stripped.startswith("Run Date") or "Run Date" in stripped:
+            header_idx = i
+            break
+
+    if header_idx == -1:
+        # Try treating line 0 as header if it has expected columns
+        for i, line in enumerate(lines):
+            if "Action" in line and "Amount" in line:
+                header_idx = i
+                break
+
+    if header_idx == -1:
+        raise ValueError("Fidelity: could not find header row.")
+
+    data_lines  = "\n".join(lines[header_idx:])
+    reader      = csv.DictReader(io.StringIO(data_lines))
+
+    trades     : list[dict] = []
+    cash_flows : list[dict] = []
+    corporates : list[dict] = []
+
+    for row in reader:
+        # Fidelity columns (strip quotes + extra spaces)
+        date_raw   = _s(row.get("Run Date", "")).strip()
+        action_raw = _s(row.get("Action", "")).strip()
+        symbol_raw = _s(row.get("Symbol", "")).strip()
+        desc_raw   = _s(row.get("Description", "")).strip()
+        price_raw  = _s(row.get("Price ($)", "")).strip()
+        qty_raw    = _s(row.get("Quantity", "")).strip()
+        comm_raw   = _s(row.get("Commission ($)", "")).strip()
+        fees_raw   = _s(row.get("Fees ($)", "")).strip()
+        amt_raw    = _s(row.get("Amount ($)", "")).strip()
+
+        if not date_raw or not action_raw:
+            continue
+
+        # Parse date
+        dt = None
+        for fmt in ("%m/%d/%Y", "%Y-%m-%d"):
+            try:
+                dt = datetime.strptime(date_raw.strip(), fmt)
+                break
+            except ValueError:
+                pass
+        date_str = dt.strftime("%Y-%m-%d") if dt else ""
+
+        meta = _fidelity_parse_action(action_raw)
+        cat  = meta.get("cat", "skip")
+
+        if cat == "skip":
+            continue
+
+        if cat == "cash":
+            amount = _f(amt_raw)
+            cash_flows.append({
+                "datetime":    dt,
+                "date_str":    date_str,
+                "trans_code":  action_raw[:60],
+                "cash_type":   meta.get("cash_type", "Other"),
+                "instrument":  symbol_raw,
+                "description": action_raw,
+                "amount":      amount,
+            })
+            continue
+
+        if cat == "corporate":
+            corporates.append({"datetime": dt, "date_str": date_str,
+                                "action": action_raw, "symbol": symbol_raw})
+            continue
+
+        # ── Trade ─────────────────────────────────────────────────────────────
+        side = meta["side"]
+        pos  = meta["pos"]
+
+        price  = _f(price_raw)
+        amount = _f(amt_raw)
+        comm   = (_f(comm_raw) or 0.0) + (_f(fees_raw) or 0.0)
+
+        if "price_override" in meta:
+            price = meta["price_override"]
+        if price is None:
+            price = 0.0
+
+        # Fidelity: qty is negative for sells — use abs()
+        qty_abs = abs(_f(qty_raw) or 0)
+        if not qty_abs and cat == "trade":
+            qty_abs = 1
+        if not qty_abs:
+            continue
+
+        # Try to detect option from Description (Fidelity embeds option info there)
+        is_opt   = False
+        expiry   = None
+        expiry_str = ""
+        strike   = None
+        instr_type = "STOCK"
+        ticker   = symbol_raw
+
+        if cat == "trade":
+            # Check description for option format
+            m = _FID_OPT_RE.match(desc_raw) or _FID_OPT_RE.match(symbol_raw)
+            if m:
+                t_, d_, s_, cp = m.groups()
+                try:
+                    expiry = datetime.strptime(d_, "%m/%d/%Y").date()
+                    expiry_str = expiry.strftime("%d %b %y")
+                    strike = float(s_)
+                    instr_type = "CALL" if cp.upper() == "CALL" else "PUT"
+                    ticker = t_.upper()
+                    is_opt = True
+                except ValueError:
+                    pass
+            # If still not detected but action says "OPENING/CLOSING", mark as option
+            if not is_opt and "OPENING" in action_raw.upper():
+                is_opt = True
+            if not is_opt and "CLOSING" in action_raw.upper():
+                is_opt = True
+
+        multiplier = 100 if is_opt else 1
+
+        # Net price from Amount if available (already net of commissions)
+        if amount is not None and qty_abs:
+            net_price = abs(amount) / (qty_abs * multiplier)
+        elif price and comm:
+            # Adjust price by per-unit commission
+            net_price = price + (comm / (qty_abs * multiplier)) * (
+                1 if side == "BUY" else -1
+            )
+        else:
+            net_price = price
+
+        is_leaps = (
+            is_opt and expiry and dt is not None
+            and (expiry - dt.date()).days > 365
+        )
+
+        trade = {
+            "datetime":               dt,
+            "date_str":               date_str,
+            "spread_type":            "",
+            "side":                   side,
+            "qty":                    int(qty_abs) if is_opt else qty_abs,
+            "pos_effect":             pos,
+            "symbol":                 ticker,
+            "expiry":                 expiry,
+            "expiry_str":             expiry_str,
+            "strike":                 strike,
+            "instr_type":             instr_type,
+            "price":                  price,
+            "net_price":              net_price,
+            "order_type":             "MKT",
+            "is_option":              is_opt,
+            "is_stock":               not is_opt,
+            "is_leaps":               is_leaps,
+            "is_continuation":        False,
+            "broker":                 "Fidelity",
+            "rh_trans_code":          "",
+            "is_assignment_delivery": False,
+        }
+        trade["strategy"] = _classify_strategy(trade)
+        trades.append(trade)
+
+    return {
+        "account_name": account_name,
+        "trades":       trades,
+        "cash_flows":   cash_flows,
+        "corporates":   corporates,
+        "equities":     [],
+        "options":      [],
+        "broker":       "Fidelity",
+    }
+
+
 # ── Auto-detect broker format ─────────────────────────────────────────────────
 
 def detect_broker(content: str) -> str:
     """
-    Return 'tos', 'robinhood', or 'unknown' based on CSV header fingerprint.
-
-    ToS:         first row is  'Account Name,<name>,...'  (comma, capital N)
-    Robinhood:   may have      'Account name<tab><name>'  (tab, lowercase n)
-                 followed by the data header with 'Activity Date' + 'Trans Code'
+    Detect broker CSV format from header fingerprint.
+    Returns: 'tos' | 'schwab_tx' | 'robinhood' | 'fidelity' | 'unknown'
     """
-    snippet = _rh_clean(content)[:800]
-    # ToS: always starts with 'Account Name' + comma (capital N, comma-sep)
+    snippet = _rh_clean(content)[:1000]
+
+    # ToS/Schwab Account Statement: starts with 'Account Name,' (capital N, comma)
     if snippet.startswith("Account Name,"):
         return "tos"
-    # Robinhood: data header row contains both of these column names
+
+    # Schwab Transaction History: header row contains 'Fees & Comm'
+    # (schwab.com export, NOT thinkorswim)
+    if '"Fees & Comm"' in snippet or "Fees & Comm" in snippet:
+        if "Date" in snippet and "Action" in snippet:
+            return "schwab_tx"
+
+    # Fidelity History: contains 'Run Date' and 'Commission ($)'
+    if "Run Date" in snippet and ("Commission ($)" in snippet or
+                                   "Amount ($)" in snippet):
+        return "fidelity"
+
+    # Robinhood: data header row contains both 'Activity Date' and 'Trans Code'
     if "Activity Date" in snippet and "Trans Code" in snippet:
         return "robinhood"
+
     return "unknown"
 
 
 def parse_broker_csv(content: str,
                      rh_account_name: str = "Robinhood Account") -> dict:
     """
-    Detect broker format and call the correct parser.
-    Returns the standard {account_name, trades, equities, options} dict.
+    Auto-detect broker format and call the correct parser.
+    Supports: ToS/Schwab Account Statement, Schwab Transaction History,
+              Robinhood Activity CSV, Fidelity Account History CSV.
     """
     broker = detect_broker(content)
     if broker == "tos":
         return parse_tos_csv(content)
+    if broker == "schwab_tx":
+        return parse_schwab_tx_csv(content, account_name=rh_account_name)
     if broker == "robinhood":
         return parse_rh_csv(content, account_name=rh_account_name)
+    if broker == "fidelity":
+        return parse_fidelity_csv(content, account_name=rh_account_name)
     raise ValueError(
-        "Unrecognised CSV format. Expected a ToS/Schwab or Robinhood export."
+        "Unrecognised CSV format. Supported: "
+        "ToS/Schwab Account Statement, Schwab Transaction History, "
+        "Robinhood Activity, Fidelity Account History.\n"
+        f"First 150 chars: {content[:150]}"
     )
 
 
