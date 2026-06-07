@@ -1041,7 +1041,10 @@ def parse_schwab_tx_csv(content: str,
         if not qty_abs:
             continue
 
-        qty = qty_abs  # we store positive; side/pos_effect tells direction
+        # Use signed qty matching ToS/RH convention: negative for SELL, positive for BUY.
+        # Critical for fingerprint deduplication — mixed ToS+Schwab TX uploads must
+        # generate identical fingerprints for the same trade or FIFO counts it twice.
+        qty = -qty_abs if side == "SELL" else qty_abs
 
         # Try to parse option details from symbol
         opt_info = _schwab_tx_parse_symbol(symbol_raw)
@@ -1075,7 +1078,7 @@ def parse_schwab_tx_csv(content: str,
             "date_str":               date_str,
             "spread_type":            "",
             "side":                   side,
-            "qty":                    int(qty_abs) if is_opt else qty_abs,
+            "qty":                    int(qty) if is_opt else qty,
             "pos_effect":             pos,
             "symbol":                 ticker,
             "expiry":                 expiry,
@@ -1335,12 +1338,15 @@ def parse_fidelity_csv(content: str,
             and (expiry - dt.date()).days > 365
         )
 
+        # Signed qty matching ToS/RH convention (negative = SELL) for correct fingerprints
+        signed_qty = -qty_abs if side == "SELL" else qty_abs
+
         trade = {
             "datetime":               dt,
             "date_str":               date_str,
             "spread_type":            "",
             "side":                   side,
-            "qty":                    int(qty_abs) if is_opt else qty_abs,
+            "qty":                    int(signed_qty) if is_opt else signed_qty,
             "pos_effect":             pos,
             "symbol":                 ticker,
             "expiry":                 expiry,
