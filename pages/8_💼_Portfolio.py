@@ -499,36 +499,35 @@ with tab_pnl:
         if not trades:
             st.info("No trades to analyze.")
         else:
-            # ── Recalculate controls ──────────────────────────────────────────
-            rc1, rc2, rc3 = st.columns([2, 2, 2])
+            # ── Controls ──────────────────────────────────────────────────────
+            rc1, rc2 = st.columns([3, 2])
             with rc1:
+                # Use session_state key directly — no separate pnl_comm_correct var needed
+                if "pnl_comm_correct" not in st.session_state:
+                    st.session_state["pnl_comm_correct"] = True
                 comm_correct = st.toggle(
-                    "💡 Commission correction",
-                    value=st.session_state.get("pnl_comm_correct", True),
+                    "💡 Commission correction ($0.65/contract for Schwab/Fidelity)",
+                    key="pnl_comm_correct",
                     help=(
-                        "Subtracts estimated broker commissions ($0.65/contract/leg "
-                        "for Schwab/Fidelity, $0 for Robinhood) from each option trade. "
-                        "Use this until data is re-uploaded with the new net_price column. "
-                        "New uploads store net_price automatically and won't be double-counted."
+                        "Subtracts estimated broker commissions from each option trade. "
+                        "Use this for data imported before net_price was stored. "
+                        "New Schwab TX / Fidelity uploads already include net_price "
+                        "and will not be double-corrected."
                     ),
-                    key="pnl_comm_toggle",
                 )
-                st.session_state["pnl_comm_correct"] = comm_correct
             with rc2:
                 if st.button("🔄 Recalculate P&L", key="pnl_recalc",
-                             help="Force fresh P&L computation — clears cached results"):
-                    for k in [k for k in st.session_state if k.startswith("pnl_cache_")]:
-                        del st.session_state[k]
+                             help="Reload fresh data from Google Sheets and recompute"):
+                    from backend.gsheet import read_sheet as _rs_clr
+                    _rs_clr.clear()           # bust GSheets cache → fresh reload
+                    st.cache_data.clear()     # clear all @st.cache_data
                     st.rerun()
 
-            # Cache key includes the commission flag so toggling auto-recalculates
-            _cache_key = f"pnl_cache_{id(trades)}_{comm_correct}"
-            if _cache_key not in st.session_state:
-                with st.spinner("Matching open/close pairs…"):
-                    st.session_state[_cache_key] = compute_realized_pnl(
-                        trades, commission_correct=comm_correct
-                    )
-            df_pnl_all = st.session_state[_cache_key]
+            # Always compute fresh — compute_realized_pnl is fast (<1s for 5k trades)
+            # Do NOT cache by id(trades): Python reuses memory addresses between reruns
+            # which causes stale cache hits with completely wrong data.
+            with st.spinner("Computing P&L…"):
+                df_pnl_all = compute_realized_pnl(trades, commission_correct=comm_correct)
 
             if df_pnl_all.empty:
                 st.warning("No matched open/close pairs found yet. "
@@ -833,8 +832,10 @@ with tab_insights:
         if not trades:
             st.info("No trades to analyze.")
         else:
-            _comm = st.session_state.get("pnl_comm_correct", True)
-            df_pnl_i = compute_realized_pnl(trades, commission_correct=_comm)
+            df_pnl_i = compute_realized_pnl(
+                trades,
+                commission_correct=st.session_state.get("pnl_comm_correct", True),
+            )
 
             if df_pnl_i.empty:
                 st.info("Not enough matched open/close data for insights yet.")
