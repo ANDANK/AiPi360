@@ -1,4 +1,5 @@
 """Google Sheets connector. All tabs auto-created if missing."""
+import time
 import streamlit as st
 import gspread
 from google.oauth2.service_account import Credentials
@@ -85,15 +86,41 @@ def _migrate_headers(ws: gspread.Worksheet, tab: str) -> None:
         ws.append_rows(new_rows, value_input_option="USER_ENTERED")
 
 
+def _is_rate_limit(exc: Exception) -> bool:
+    """Return True if the exception is a Google API quota/rate-limit error."""
+    msg = str(exc).lower()
+    return any(k in msg for k in ("quota", "rate", "429", "resource_exhausted",
+                                   "too many requests"))
+
+
+def _read_sheet_raw(tab: str) -> pd.DataFrame:
+    """Read a sheet tab with exponential-backoff retry on rate-limit errors."""
+    max_attempts = 4
+    delay = 2.0
+    last_exc: Exception | None = None
+    for attempt in range(max_attempts):
+        try:
+            ws   = _get_or_create_ws(tab)
+            data = ws.get_all_records(expected_headers=[])
+            if data:
+                return pd.DataFrame(data)
+            cols = TAB_SCHEMAS.get(tab, [])
+            return pd.DataFrame(columns=cols)
+        except gspread.exceptions.APIError as exc:
+            last_exc = exc
+            if _is_rate_limit(exc) and attempt < max_attempts - 1:
+                time.sleep(delay)
+                delay *= 2          # 2s → 4s → 8s
+                continue
+            raise                   # non-rate-limit API error — surface immediately
+        except Exception:
+            raise
+    raise last_exc  # type: ignore[misc]
+
+
 @st.cache_data(ttl=120)
 def read_sheet(tab: str) -> pd.DataFrame:
-    ws = _get_or_create_ws(tab)
-    # expected_headers=[] prevents GSpreadException on duplicate/empty headers (gspread 6.x)
-    data = ws.get_all_records(expected_headers=[])
-    if data:
-        return pd.DataFrame(data)
-    cols = TAB_SCHEMAS.get(tab, [])
-    return pd.DataFrame(columns=cols)
+    return _read_sheet_raw(tab)
 
 
 def append_row(tab: str, row: list) -> None:

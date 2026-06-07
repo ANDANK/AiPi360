@@ -216,14 +216,28 @@ def load_account_data(acct_id: str, acct_name: str = "") -> dict:
     pos_tab   = f"POS_{acct_id}"
     cashf_tab = f"CASHF_{acct_id}"
 
+    def _safe_read(tab: str) -> pd.DataFrame:
+        """Read a sheet tab; return empty DataFrame on any API / network error."""
+        try:
+            return read_sheet(tab)
+        except Exception as exc:
+            # Surface a non-crashing warning so the page stays up
+            import streamlit as _st
+            _st.warning(
+                f"⚠️ Could not load **{tab}** from Google Sheets: {exc}  \n"
+                "Data for this tab will appear empty. "
+                "If this persists, check your Sheets API quota or re-upload."
+            )
+            return pd.DataFrame()
+
     # Transactions
-    df_trx = read_sheet(trx_tab)
+    df_trx = _safe_read(trx_tab)
     trades = [_row_to_trade(r) for _, r in df_trx.iterrows()] if not df_trx.empty else []
 
     # Positions
     equities: list[dict] = []
     options:  list[dict] = []
-    df_pos = read_sheet(pos_tab)
+    df_pos = _safe_read(pos_tab)
     if not df_pos.empty:
         for _, r in df_pos.iterrows():
             row = r.to_dict()
@@ -256,7 +270,7 @@ def load_account_data(acct_id: str, acct_name: str = "") -> dict:
                 })
 
     # Cash flows
-    df_cf = read_sheet(cashf_tab)
+    df_cf = _safe_read(cashf_tab)
     cash_flows: list[dict] = []
     if not df_cf.empty:
         for _, r in df_cf.iterrows():
