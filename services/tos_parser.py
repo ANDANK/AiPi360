@@ -305,10 +305,35 @@ _STOCK_SPLITS: dict[str, list[tuple]] = {
 }
 
 
-def compute_realized_pnl(trades: list[dict]) -> pd.DataFrame:
+# Per-leg commission rates by broker (options only; stocks = $0 at all brokers)
+# Used when net_price is not stored (existing data) for commission correction.
+_BROKER_OPT_COMMISSION = {
+    "schwab":    0.65,
+    "tos":       0.65,
+    "fidelity":  0.65,
+    "robinhood": 0.00,
+}
+
+
+def _commission_for(trade: dict, qty: int) -> float:
+    """Return estimated commission for one leg of an option trade."""
+    if not trade.get("is_option"):
+        return 0.0
+    broker = str(trade.get("broker", "")).lower()
+    rate = _BROKER_OPT_COMMISSION.get(broker, 0.65)   # default $0.65 if unknown
+    return rate * abs(qty)
+
+
+def compute_realized_pnl(trades: list[dict],
+                         commission_correct: bool = False) -> pd.DataFrame:
     """
     FIFO-match open/close pairs from trade history.
     Options multiplier = 100.  Stocks = 1.
+
+    commission_correct=True: subtract estimated broker commission ($0.65/contract
+    per leg for Schwab/Fidelity, $0 for Robinhood) from each matched P&L.
+    Use this when net_price is not available in stored data (existing imports).
+    New uploads store net_price and the FIFO engine uses it automatically.
 
     Inline split adjustment: as the chronological scan crosses a known split
     date, all lots still in the FIFO queue are repriced and re-quantified.
@@ -413,6 +438,23 @@ def compute_realized_pnl(trades: list[dict]) -> pd.DataFrame:
                     hold_days = (dt - o["dt"]).days if dt and o["dt"] else 0
                     strat     = _classify_strategy(o["trade"])
 
+                    # Commission correction for existing data that lacks net_price.
+                    # Only applied when caller requests it AND net_price == price
+                    # (i.e. commission was never stored).
+                    comm_adj = 0.0
+                    if commission_correct and is_option:
+                        has_real_net = (
+                            o["trade"].get("net_price") is not None and
+                            o["trade"].get("net_price") != o["trade"].get("price")
+                        )
+                        if not has_real_net:
+                            comm_open  = _commission_for(o["trade"], mq)
+                            comm_close = _commission_for(t, mq)
+                            # For OEXP/OASGN close price=0, broker charges no close commission
+                            if price == 0:
+                                comm_close = 0.0
+                            comm_adj = comm_open + comm_close
+
                     records.append({
                         "symbol":      symbol,
                         "expiry_str":  key[1],
@@ -426,10 +468,11 @@ def compute_realized_pnl(trades: list[dict]) -> pd.DataFrame:
                         "qty":         mq,
                         "open_price":  o["price"],
                         "close_price": price,
-                        "pnl":         round(pnl, 2),
+                        "pnl":         round(pnl - comm_adj, 2),
                         "pnl_pct":     round(pnl_pct, 1),
                         "multiplier":  multiplier,
-                        "winner":      pnl > 0,
+                        "winner":      (pnl - comm_adj) > 0,
+                        "commission":  round(comm_adj, 2),
                     })
                     o["qty"]   -= mq
                     remaining  -= mq

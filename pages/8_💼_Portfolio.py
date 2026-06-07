@@ -493,8 +493,36 @@ with tab_pnl:
         if not trades:
             st.info("No trades to analyze.")
         else:
-            with st.spinner("Matching open/close pairs…"):
-                df_pnl_all = compute_realized_pnl(trades)
+            # ── Recalculate controls ──────────────────────────────────────────
+            rc1, rc2, rc3 = st.columns([2, 2, 2])
+            with rc1:
+                comm_correct = st.toggle(
+                    "💡 Commission correction",
+                    value=st.session_state.get("pnl_comm_correct", True),
+                    help=(
+                        "Subtracts estimated broker commissions ($0.65/contract/leg "
+                        "for Schwab/Fidelity, $0 for Robinhood) from each option trade. "
+                        "Use this until data is re-uploaded with the new net_price column. "
+                        "New uploads store net_price automatically and won't be double-counted."
+                    ),
+                    key="pnl_comm_toggle",
+                )
+                st.session_state["pnl_comm_correct"] = comm_correct
+            with rc2:
+                if st.button("🔄 Recalculate P&L", key="pnl_recalc",
+                             help="Force fresh P&L computation — clears cached results"):
+                    for k in [k for k in st.session_state if k.startswith("pnl_cache_")]:
+                        del st.session_state[k]
+                    st.rerun()
+
+            # Cache key includes the commission flag so toggling auto-recalculates
+            _cache_key = f"pnl_cache_{id(trades)}_{comm_correct}"
+            if _cache_key not in st.session_state:
+                with st.spinner("Matching open/close pairs…"):
+                    st.session_state[_cache_key] = compute_realized_pnl(
+                        trades, commission_correct=comm_correct
+                    )
+            df_pnl_all = st.session_state[_cache_key]
 
             if df_pnl_all.empty:
                 st.warning("No matched open/close pairs found yet. "
@@ -799,7 +827,8 @@ with tab_insights:
         if not trades:
             st.info("No trades to analyze.")
         else:
-            df_pnl_i = compute_realized_pnl(trades)
+            _comm = st.session_state.get("pnl_comm_correct", True)
+            df_pnl_i = compute_realized_pnl(trades, commission_correct=_comm)
 
             if df_pnl_i.empty:
                 st.info("Not enough matched open/close data for insights yet.")

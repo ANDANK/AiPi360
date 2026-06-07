@@ -24,7 +24,7 @@ from services.tos_parser import _trade_sig
 
 TRX_COLS = [
     "date_str", "spread_type", "side", "qty", "pos_effect",
-    "symbol", "expiry_str", "strike", "instr_type", "price",
+    "symbol", "expiry_str", "strike", "instr_type", "price", "net_price",
     "is_option", "is_stock", "is_leaps", "strategy",
     "broker", "rh_trans_code", "fingerprint",
 ]
@@ -61,6 +61,7 @@ def _trade_to_row(t: dict) -> dict:
         "strike":        t.get("strike", ""),
         "instr_type":    t.get("instr_type", ""),
         "price":         t.get("price", ""),
+        "net_price":     t.get("net_price", t.get("price", "")),  # commission-adjusted
         "is_option":     _b(t.get("is_option", False)),
         "is_stock":      _b(t.get("is_stock", True)),
         "is_leaps":      _b(t.get("is_leaps", False)),
@@ -119,7 +120,7 @@ def _row_to_trade(row: dict) -> dict:
         "strike":          _flt(row.get("strike")),
         "instr_type":      str(row.get("instr_type", "")),
         "price":           _flt(row.get("price")),
-        "net_price":       _flt(row.get("price")),
+        "net_price":       _flt(row.get("net_price")) or _flt(row.get("price")),
         "is_option":       _bool(row.get("is_option")),
         "is_stock":        _bool(row.get("is_stock")),
         "is_leaps":        _bool(row.get("is_leaps")),
