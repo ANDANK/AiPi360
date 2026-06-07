@@ -352,11 +352,25 @@ def compute_realized_pnl(trades: list[dict]) -> pd.DataFrame:
             side  = t.get("side", "")
             pos   = t.get("pos_effect", "")
             qty   = abs(t.get("qty") or 0)
-            price = t.get("price")
             dt    = t.get("datetime")
-            # Skip only if qty is missing; price=0 is valid for OEXP/OASGN
+
+            # Bug fix: for OASGN/OEXP rows, Robinhood sometimes exports
+            # an empty Quantity cell even for multi-contract positions.
+            # Derive qty from the stored qty field which was set during parsing;
+            # only fall back to 1 if truly zero.
+            if not qty and t.get("rh_trans_code") in ("OEXP", "OASGN", "OEXCS", "OEXRC"):
+                qty = 1   # genuine missing — safe fallback (single contract)
+
             if not qty:
                 continue
+
+            # Bug fix: prefer net_price (commission-adjusted) over raw price.
+            # ToS/Schwab CSV contains a "Net Price" column that already deducts
+            # the per-contract commission; Robinhood has zero commissions so
+            # net_price == price there.  Using net_price aligns AiPi360 with
+            # the broker-reported Realized_PL figures in PL_Master.
+            price = t.get("net_price") or t.get("price")
+
             # For non-close trades, price must exist; for close trades, price can be 0
             if price is None and pos != "TO CLOSE":
                 continue
