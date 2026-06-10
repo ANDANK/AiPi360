@@ -36,7 +36,7 @@ _MAINT_DEFAULT = "🚧 We're updating AiPi360. Check back soon!"
 PAGES = [
     {"key": "kids",      "label": "🧒 Kids",           "kid_required": True},
     {"key": "insurance", "label": "🛡️ Insurance",       "kid_required": False},
-    {"key": "cc_points", "label": "💳 CC & Points",     "kid_required": False},
+    {"key": "cc_points", "label": "💳 Credit Cards",     "kid_required": False},
     {"key": "travel",    "label": "✈️ Travel",          "kid_required": False},
     {"key": "calendar",  "label": "📅 Calendar",        "kid_required": False},
     {"key": "accounts",      "label": "📊 Account Tracker", "kid_required": False},
