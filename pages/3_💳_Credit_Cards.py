@@ -492,7 +492,7 @@ with tab5:
             "reward_rate": "10x hotels+cars (C1 Travel), 5x flights (C1 Travel), 2x all else",
             "points_currency": "Capital One Miles", "cpp_estimate": "1.0–1.7¢",
             "ref_link": "https://capitalone.com/credit-cards/venture-x/",
-            "best_for": ["Best fee-to-value ratio", "Free AUs with PP each", "2x on everything"],
+            "best_for": ["Best fee-to-value ratio", "2x on everything", "C1 Lounge at DFW"],
             "not_ideal_for": ["Hyatt/Marriott/Hilton status seekers", "Portal-averse travelers"],
             "benefits": {
                 "Travel Credits": [
@@ -509,8 +509,8 @@ with tab5:
                 "Hotel & Lifestyle": [
                     {"name": "Premier Collection Hotels", "value": "Elite perks", "fp": True,
                      "notes": "$100 experience credit, room upgrade, early/late checkout, daily breakfast. Book via C1 Travel."},
-                    {"name": "Free Authorized Users (4)", "value": "$0/each", "fp": False,
-                     "notes": "Up to 4 AUs free — each gets their own Priority Pass. Massive value multiplier."},
+                    {"name": "Authorized Users (up to 4)", "value": "$125/yr (all AUs)", "fp": True,
+                     "notes": "From Feb 1, 2026: AUs no longer get free lounge access. Pay $125/yr per account to give all AUs C1+PP lounge access. PP guests now $35/person for everyone."},
                 ],
                 "Protections": [
                     {"name": "Trip Cancellation / Interruption", "value": "$2,000/trip", "fp": True,
@@ -636,7 +636,7 @@ with tab5:
         ("Trip Delay",            ["✓ 6 hrs / $500", "✓ 6 hrs / $500", "✓ 6 hrs / $500", "✗ None", "✓ 12 hrs / $500"]),
         ("Primary Rental Car",    ["✗ Secondary", "✓ Primary", "✓ Primary", "✗ Secondary", "✓ Primary"]),
         ("Cell Phone Prot.",      ["✗ None", "✓ $800/claim", "✓ $800/claim", "✗ None", "✗ None"]),
-        ("Free AU Lounge",        ["✗ $175/AU", "✗ $75/AU", "✓ PP for each AU", "N/A", "N/A"]),
+        ("AU Lounge Access",       ["✗ $175/AU", "✗ $75/AU", "✗ $125/yr (all AUs)\nfrom Feb 2026", "N/A", "N/A"]),
         ("No FX Fee",             ["✓", "✓", "✓", "✓", "✓"]),
         ("Best Transfer Partner", ["Aeroplan (2¢+)", "Hyatt (2.5¢+)", "Aeroplan (2¢+)", "Aeroplan (2¢+)", "Hyatt (2.5¢+)"]),
     ]
