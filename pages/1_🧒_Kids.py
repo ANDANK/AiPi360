@@ -8,7 +8,6 @@ from datetime import date, timedelta, datetime as _dt
 
 _authenticated = st.session_state.get("authenticated", False)
 st.set_page_config(page_title="AiPi360 · Kids", page_icon="🧒", layout="wide",
-    initial_sidebar_state="expanded" if _authenticated else "collapsed",
     initial_sidebar_state="expanded" if _authenticated else "collapsed")
 
 from backend.auth import require_auth, sign_out
